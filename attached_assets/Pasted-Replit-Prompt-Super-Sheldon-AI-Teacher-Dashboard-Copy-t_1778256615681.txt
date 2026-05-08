@@ -1,0 +1,330 @@
+Replit Prompt — Super Sheldon AI Teacher Dashboard
+
+Copy this full prompt into Replit AI Agent
+
+Create a modern full-stack web application called Super Sheldon AI Teacher Dashboard.
+
+Theme colors:
+
+Primary: Orange (#ff7a00)
+Secondary: White
+Accent: Light orange gradients
+Modern glassmorphism UI
+Smooth animations
+Responsive for laptop + tablet
+
+Tech Stack:
+
+Frontend: Next.js 15 + TypeScript
+Backend: Node.js + Express
+Database: PostgreSQL
+ORM: Prisma
+Authentication: JWT login
+Styling: TailwindCSS + Framer Motion
+Icons: Lucide React
+AI: Gemini API integration
+Charts: Recharts
+State Management: Zustand
+Notifications: Sonner Toast
+
+Project Goal:
+This is an AI-powered dashboard for Super Sheldon teachers.
+
+Teachers can:
+
+Login
+View all upcoming classes
+Click “Get Started”
+Open an AI Assistant popup
+Leave dashboard and join Zoom/Google Meet externally
+AI continues running in background
+AI analyzes:
+Classroom voice quality
+Noise level
+Student engagement
+Teacher talking ratio
+Silence detection
+Internet quality simulation
+Background disturbances
+After class ends teacher clicks “Finish Analysis”
+AI generates detailed teaching performance report
+MAIN FEATURES
+1. AUTH SYSTEM
+
+Create:
+
+Login page
+Email/password authentication
+JWT session
+Protected dashboard routes
+
+Demo Login:
+email: teacher@supersheldon.com
+
+password: 123456
+
+2. DASHBOARD
+
+After login show:
+
+Top Navbar:
+
+Super Sheldon logo
+Teacher profile
+Notification bell
+AI status indicator
+
+Sidebar:
+
+Dashboard
+Upcoming Classes
+AI Reports
+Performance
+Settings
+Logout
+
+Dashboard Cards:
+
+Total Classes
+AI Score
+Average Engagement
+Weekly Teaching Rating
+
+Show beautiful analytics charts.
+
+3. CLASS SECTION
+
+Create class cards with:
+
+Student name
+Subject
+Time
+Duration
+Meeting platform
+Status
+
+Each card has:
+
+“Get Started” button
+
+When clicked:
+Open animated popup modal.
+
+4. AI POPUP MODAL
+
+Popup design:
+
+Floating AI orb animation
+Orange glowing assistant
+Voice wave animation
+
+Popup text:
+
+“AI Classroom Assistant Activated”
+
+Show:
+
+Microphone monitoring
+Background analysis
+Engagement tracking
+Voice clarity detection
+Internet quality monitoring
+
+Buttons:
+
+Start AI Monitoring
+Join Class
+Close
+
+When “Join Class” clicked:
+Open fake Zoom/Meet redirect page.
+
+IMPORTANT:
+Simulate background AI monitoring using:
+
+Browser microphone access
+Random analytics generation
+Background timers
+Real-time AI activity logs
+
+Even if user changes tabs:
+continue simulated monitoring.
+
+5. LIVE AI ANALYSIS ENGINE
+
+Create fake realtime monitoring engine.
+
+Track:
+
+Noise %
+Speaking Confidence
+Student Attention
+Energy Level
+Interaction Score
+Dead Air Time
+Internet Stability
+
+Show realtime:
+
+Graphs
+AI logs
+Voice waveform
+Status indicators
+
+Use Gemini AI API for:
+
+Teaching feedback
+Class summary
+Suggestions
+Performance review
+
+Environment variable:
+GEMINI_API_KEY=
+
+Use latest Gemini SDK.
+
+6. FINISH ANALYSIS FLOW
+
+When teacher returns dashboard:
+show “Finish Analysis” button.
+
+On click:
+Generate full AI report.
+
+7. AI REPORT PAGE
+
+Beautiful report UI.
+
+Sections:
+
+Overall Teaching Score
+Engagement Score
+Communication Analysis
+Voice Clarity
+Student Interaction
+AI Suggestions
+Improvement Areas
+Positive Highlights
+
+Add:
+
+Circular progress charts
+Timeline graph
+AI-generated summary
+
+Allow:
+
+Download PDF
+Share Report
+8. UI/UX REQUIREMENTS
+
+Need:
+
+Premium SaaS design
+Smooth animations
+Floating cards
+Orange-white gradient backgrounds
+Glassmorphism
+AI futuristic feeling
+
+Use:
+
+Motion animations
+Loading skeletons
+Interactive hover effects
+9. BONUS FEATURES
+
+Add:
+
+AI floating chatbot assistant
+Dark/light mode
+Notification center
+Live AI pulse animation
+Fake realtime teacher ranking
+10. FILE STRUCTURE
+
+Create proper:
+
+components/
+pages/
+hooks/
+lib/
+api/
+prisma/
+types/
+utils/
+
+Use clean architecture.
+
+11. IMPORTANT
+
+Create:
+
+Fully working frontend
+Backend APIs
+Fake realtime AI simulation
+Responsive design
+Production-quality UI
+
+Generate:
+
+Complete code
+Setup steps
+Environment file
+Prisma schema
+Sample seed data
+
+Also create:
+
+README.md with deployment instructions
+
+Deploy-ready for:
+
+Replit
+Vercel
+Render
+12. EXTRA ADVANCED UI
+
+Add:
+
+Animated AI assistant orb
+Voice wave bars
+Realtime monitoring animation
+AI thinking loader
+Floating notification toasts
+Dashboard transitions
+
+Make the entire app feel like:
+“Future AI Teaching Operating System”
+
+Use premium modern SaaS inspiration similar to:
+
+Linear
+Notion AI
+OpenAI dashboard
+Stripe dashboard
+
+But keep orange-white Super Sheldon branding.
+
+13. DEMO DATA
+
+Create:
+
+10 fake classes
+5 AI reports
+Fake analytics
+Demo teacher profile
+14. FINAL OUTPUT
+
+After coding:
+Automatically run:
+
+npm install
+prisma migrate
+npm run dev
+
+Fix all TypeScript errors automatically.
+
+Ensure no broken imports.
+
+Project should run successfully immediately.

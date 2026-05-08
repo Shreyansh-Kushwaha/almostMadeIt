@@ -3,20 +3,30 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Super Sheldon AI Teacher Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: classes
+    description: Class management
+  - name: sessions
+    description: AI monitoring sessions
+  - name: reports
+    description: AI analysis reports
+  - name: dashboard
+    description: Dashboard statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,238 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated teacher
+      responses:
+        "200":
+          description: Current teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Teacher"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /classes:
+    get:
+      operationId: listClasses
+      tags: [classes]
+      summary: List all classes for the current teacher
+      responses:
+        "200":
+          description: List of classes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Class"
+
+  /classes/{classId}:
+    get:
+      operationId: getClass
+      tags: [classes]
+      summary: Get a single class by ID
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Class details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Class"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/start:
+    post:
+      operationId: startSession
+      tags: [sessions]
+      summary: Start an AI monitoring session for a class
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartSessionBody"
+      responses:
+        "201":
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+
+  /sessions/active:
+    get:
+      operationId: getActiveSession
+      tags: [sessions]
+      summary: Get the current active monitoring session
+      responses:
+        "200":
+          description: Active session or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveSessionResponse"
+
+  /sessions/{sessionId}/finish:
+    post:
+      operationId: finishSession
+      tags: [sessions]
+      summary: Finish monitoring and generate AI report
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: AI report generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+
+  /reports:
+    get:
+      operationId: listReports
+      tags: [reports]
+      summary: List all AI reports for the current teacher
+      responses:
+        "200":
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+
+  /reports/{reportId}:
+    get:
+      operationId: getReport
+      tags: [reports]
+      summary: Get a single AI report by ID
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Report details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard summary statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/weekly-performance:
+    get:
+      operationId: getWeeklyPerformance
+      tags: [dashboard]
+      summary: Get weekly teaching performance chart data
+      responses:
+        "200":
+          description: Weekly performance data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeeklyPerformancePoint"
+
+  /dashboard/rankings:
+    get:
+      operationId: getTeacherRankings
+      tags: [dashboard]
+      summary: Get teacher ranking leaderboard
+      responses:
+        "200":
+          description: Teacher rankings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeacherRanking"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +273,245 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required: [email, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        teacher:
+          $ref: "#/components/schemas/Teacher"
+      required: [token, teacher]
+
+    Teacher:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        subject:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        totalClasses:
+          type: integer
+        avgScore:
+          type: number
+      required: [id, name, email, subject, totalClasses, avgScore]
+
+    Class:
+      type: object
+      properties:
+        id:
+          type: integer
+        teacherId:
+          type: integer
+        studentName:
+          type: string
+        subject:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        platform:
+          type: string
+          enum: [zoom, google_meet, teams]
+        meetingUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [upcoming, in_progress, completed, cancelled]
+        grade:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required: [id, teacherId, studentName, subject, scheduledAt, durationMinutes, platform, status]
+
+    StartSessionBody:
+      type: object
+      properties:
+        classId:
+          type: integer
+      required: [classId]
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: integer
+        classId:
+          type: integer
+        teacherId:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, finished]
+      required: [id, classId, teacherId, startedAt, status]
+
+    ActiveSessionResponse:
+      type: object
+      properties:
+        session:
+          $ref: "#/components/schemas/Session"
+          nullable: true
+        class:
+          $ref: "#/components/schemas/Class"
+          nullable: true
+      required: [session, class]
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        classId:
+          type: integer
+        teacherId:
+          type: integer
+        overallScore:
+          type: number
+        engagementScore:
+          type: number
+        voiceClarityScore:
+          type: number
+        interactionScore:
+          type: number
+        noiseLevel:
+          type: number
+        speakingConfidence:
+          type: number
+        deadAirSeconds:
+          type: number
+        internetStability:
+          type: number
+        aiSummary:
+          type: string
+        suggestions:
+          type: array
+          items:
+            type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        improvementAreas:
+          type: array
+          items:
+            type: string
+        timelineData:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelinePoint"
+        createdAt:
+          type: string
+          format: date-time
+        class:
+          $ref: "#/components/schemas/Class"
+          nullable: true
+      required: [id, sessionId, classId, teacherId, overallScore, engagementScore, voiceClarityScore, interactionScore, noiseLevel, speakingConfidence, deadAirSeconds, internetStability, aiSummary, suggestions, highlights, improvementAreas, timelineData, createdAt]
+
+    TimelinePoint:
+      type: object
+      properties:
+        minute:
+          type: integer
+        engagement:
+          type: number
+        voiceClarity:
+          type: number
+        noise:
+          type: number
+      required: [minute, engagement, voiceClarity, noise]
+
+    DashboardStats:
+      type: object
+      properties:
+        totalClasses:
+          type: integer
+        totalClassesChange:
+          type: number
+        avgAiScore:
+          type: number
+        avgAiScoreChange:
+          type: number
+        avgEngagement:
+          type: number
+        avgEngagementChange:
+          type: number
+        weeklyRating:
+          type: number
+        weeklyRatingChange:
+          type: number
+        upcomingCount:
+          type: integer
+        completedCount:
+          type: integer
+        reportsCount:
+          type: integer
+      required: [totalClasses, totalClassesChange, avgAiScore, avgAiScoreChange, avgEngagement, avgEngagementChange, weeklyRating, weeklyRatingChange, upcomingCount, completedCount, reportsCount]
+
+    WeeklyPerformancePoint:
+      type: object
+      properties:
+        day:
+          type: string
+        score:
+          type: number
+        engagement:
+          type: number
+        classes:
+          type: integer
+      required: [day, score, engagement, classes]
+
+    TeacherRanking:
+      type: object
+      properties:
+        rank:
+          type: integer
+        name:
+          type: string
+        subject:
+          type: string
+        score:
+          type: number
+        isCurrentTeacher:
+          type: boolean
+      required: [rank, name, subject, score, isCurrentTeacher]

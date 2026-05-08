@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Super Sheldon AI Teacher Dashboard"
+version = "1.0.0"
+id = "artifacts/super-sheldon"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24724
+
+[services.development]
+run = "pnpm --filter @workspace/super-sheldon run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/super-sheldon", "run", "build" ]
+publicDir = "artifacts/super-sheldon/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24724"
+BASE_PATH = "/"
