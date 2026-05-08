@@ -1,7 +1,15 @@
+import { GoogleGenAI } from "@google/genai";
 import { logger } from "./logger";
 
-const BASE_URL = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
-const API_KEY = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+function createClient() {
+  const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  if (!baseUrl || !apiKey) return null;
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: { apiVersion: "", baseUrl },
+  });
+}
 
 function generateSimulatedReport(studentName: string, subject: string, teacherName: string) {
   const overallScore = 75 + Math.random() * 20;
@@ -52,7 +60,8 @@ function generateSimulatedReport(studentName: string, subject: string, teacherNa
 }
 
 export async function generateAiReport(studentName: string, subject: string, teacherName: string) {
-  if (!BASE_URL || !API_KEY) {
+  const client = createClient();
+  if (!client) {
     logger.warn("Gemini AI not configured, using simulated report");
     return generateSimulatedReport(studentName, subject, teacherName);
   }
@@ -64,7 +73,7 @@ Teacher: ${teacherName}
 Student: ${studentName}
 Subject: ${subject}
 
-Generate a JSON response with exactly this structure (no markdown, just JSON):
+Respond ONLY with valid JSON (no markdown, no code fences) in exactly this structure:
 {
   "aiSummary": "2-3 sentence professional summary of the teaching session",
   "suggestions": ["suggestion 1", "suggestion 2", "suggestion 3", "suggestion 4"],
@@ -72,24 +81,20 @@ Generate a JSON response with exactly this structure (no markdown, just JSON):
   "improvementAreas": ["area 1", "area 2", "area 3"]
 }`;
 
-    const response = await fetch(`${BASE_URL}/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 8192 },
-      }),
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: { maxOutputTokens: 8192 },
     });
 
-    if (!response.ok) {
-      logger.warn({ status: response.status }, "Gemini API call failed, using simulated report");
-      return generateSimulatedReport(studentName, subject, teacherName);
-    }
-
-    const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const text = response.text ?? "";
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleaned) as { aiSummary: string; suggestions: string[]; highlights: string[]; improvementAreas: string[] };
+    const parsed = JSON.parse(cleaned) as {
+      aiSummary: string;
+      suggestions: string[];
+      highlights: string[];
+      improvementAreas: string[];
+    };
 
     const simulated = generateSimulatedReport(studentName, subject, teacherName);
     return {

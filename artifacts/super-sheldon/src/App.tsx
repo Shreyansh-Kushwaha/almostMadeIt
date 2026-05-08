@@ -2,7 +2,7 @@ import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useGetMe } from "@workspace/api-client-react";
 import NotFound from "@/pages/not-found";
 
@@ -13,6 +13,7 @@ import Reports from "./pages/Reports";
 import ReportDetail from "./pages/ReportDetail";
 import Performance from "./pages/Performance";
 import Settings from "./pages/Settings";
+import Monitor from "./pages/Monitor";
 import Shell from "./components/layout/Shell";
 
 const queryClient = new QueryClient({
@@ -51,9 +52,11 @@ function MainLayout() {
   }, [isError, setLocation]);
 
   if (isLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-    </div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   if (!user) return null;
@@ -74,7 +77,6 @@ function MainLayout() {
 }
 
 function Router() {
-  // Add dark mode by default
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
@@ -82,6 +84,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      {/* Standalone monitor popup — no Shell, no auth redirect */}
+      <Route path="/monitor" component={Monitor} />
       <Route path="*">
         <MainLayout />
       </Route>

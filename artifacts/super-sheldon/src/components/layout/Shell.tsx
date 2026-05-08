@@ -11,10 +11,13 @@ import {
   LogOut,
   BrainCircuit,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AiOrb from "../AiOrb";
+import FloatingAssistant from "../FloatingAssistant";
+import { toast } from "sonner";
 
 export default function Shell({ children }: { children: ReactNode }) {
   const [location, setLocation] = useLocation();
@@ -24,20 +27,40 @@ export default function Shell({ children }: { children: ReactNode }) {
       onSuccess: () => {
         localStorage.removeItem("sheldon_token");
         setLocation("/login");
-      }
-    }
+      },
+    },
   });
 
   const { data: activeSessionData } = useGetActiveSession({
-    query: { refetchInterval: 5000 } // Poll for active session
+    query: { refetchInterval: 5000 },
   });
+
   const finishSessionMutation = useFinishSession({
     mutation: {
       onSuccess: (report) => {
         setLocation(`/reports/${report.id}`);
-      }
-    }
+        toast.success("AI Report generated!");
+      },
+    },
   });
+
+  const openMonitorPopup = () => {
+    if (!activeSessionData?.session) return;
+    const token = localStorage.getItem("sheldon_token") ?? "";
+    const { session, class: cls } = activeSessionData;
+    const params = new URLSearchParams({
+      sessionId: String(session.id),
+      token,
+      studentName: cls?.studentName ?? "Student",
+      subject: cls?.subject ?? "Class",
+    });
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    window.open(
+      `${base}/monitor?${params.toString()}`,
+      "sheldon_ai_monitor",
+      "width=400,height=680,top=80,left=20,resizable=yes,scrollbars=no"
+    );
+  };
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -46,10 +69,6 @@ export default function Shell({ children }: { children: ReactNode }) {
     { href: "/performance", label: "Performance", icon: Activity },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -62,7 +81,9 @@ export default function Shell({ children }: { children: ReactNode }) {
 
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            const isActive =
+              location === item.href ||
+              (item.href !== "/" && location.startsWith(item.href));
             return (
               <Link key={item.href} href={item.href}>
                 <div
@@ -96,7 +117,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           <Button
             variant="ghost"
             className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={handleLogout}
+            onClick={() => logoutMutation.mutate()}
             disabled={logoutMutation.isPending}
           >
             <LogOut className="w-4 h-4 mr-2" />
@@ -114,38 +135,57 @@ export default function Shell({ children }: { children: ReactNode }) {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="bg-primary/10 border-b border-primary/20"
+              className="bg-primary/10 border-b border-primary/20 shrink-0"
             >
-              <div className="px-6 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-4">
+              <div className="px-6 py-3 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
                   <AiOrb size="sm" isActive />
-                  <div>
-                    <p className="text-sm font-medium text-primary">AI is monitoring in background</p>
-                    <p className="text-xs text-muted-foreground">
-                      Class: {activeSessionData.class?.studentName} - {activeSessionData.class?.subject}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-primary">AI monitoring in background</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {activeSessionData.class?.studentName} — {activeSessionData.class?.subject}
                     </p>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => finishSessionMutation.mutate({ sessionId: activeSessionData.session!.id })}
-                  disabled={finishSessionMutation.isPending}
-                >
-                  {finishSessionMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Finish Analysis
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-primary/30 text-primary hover:bg-primary/10 gap-1.5"
+                    onClick={openMonitorPopup}
+                    data-testid="button-open-monitor-banner"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Open AI Window
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      finishSessionMutation.mutate({
+                        sessionId: activeSessionData.session!.id,
+                      })
+                    }
+                    disabled={finishSessionMutation.isPending}
+                    data-testid="button-finish-analysis"
+                  >
+                    {finishSessionMutation.isPending && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
+                    Finish Analysis
+                  </Button>
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10">
-          <div className="max-w-6xl mx-auto">
-            {children}
-          </div>
+          <div className="max-w-6xl mx-auto">{children}</div>
         </div>
       </main>
+
+      {/* Global floating AI assistant — visible on all pages */}
+      <FloatingAssistant />
     </div>
   );
 }
