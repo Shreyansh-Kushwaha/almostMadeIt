@@ -47,3 +47,35 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.upm/
+.replit_history
+replit.nix
+.config/
+
+# Claude Code
+.claude/
+.claude.json
+.claude-code/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Generated drizzle migrations (schema source of truth lives in lib/db/src/schema)
+drizzle/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# Build/cache caches
+.turbo/
+.vite/
+.eslintcache
+.parcel-cache/
+
+# Test/coverage extras
+.nyc_output/

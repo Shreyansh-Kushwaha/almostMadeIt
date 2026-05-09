@@ -1,10 +1,11 @@
-import { pgTable, serial, integer, timestamp, text } from "drizzle-orm/pg-core";
+import { serial, integer, timestamp, text } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachersTable } from "./teachers";
 import { classesTable } from "./classes";
+import { sheldonSchema } from "./_schema";
 
-export const sessionsTable = pgTable("sessions", {
+export const sessionsTable = sheldonSchema.table("sessions", {
   id: serial("id").primaryKey(),
   classId: integer("class_id").notNull().references(() => classesTable.id),
   teacherId: integer("teacher_id").notNull().references(() => teachersTable.id),

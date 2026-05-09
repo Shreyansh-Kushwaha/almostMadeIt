@@ -1,3 +1,4 @@
+export * from "./_schema";
 export * from "./teachers";
 export * from "./classes";
 export * from "./sessions";
