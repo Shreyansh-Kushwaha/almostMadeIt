@@ -4,6 +4,9 @@ import { db, teachersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
+if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET must be set in production — refusing to start with the hardcoded fallback (tokens would be forgeable).");
+}
 const SECRET = process.env.SESSION_SECRET ?? "super-sheldon-secret-key";
 
 export function hashPassword(password: string): string {

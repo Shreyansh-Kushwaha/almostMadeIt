@@ -12,6 +12,11 @@ export function hashPassword(password: string): string {
 }
 
 export async function ensureDemoTeacher() {
+  if (process.env.SEED_DEMO === "false") {
+    logger.info("SEED_DEMO=false — skipping demo teacher seed");
+    return;
+  }
+
   const [existing] = await db.select().from(teachersTable).where(eq(teachersTable.email, "teacher@supersheldon.com"));
   if (!existing) {
     await db.insert(teachersTable).values({
@@ -23,8 +28,7 @@ export async function ensureDemoTeacher() {
       avgScore: 91.5,
     });
     logger.info("Demo teacher created");
-  } else {
-    // Re-hash with current secret to ensure consistency
+  } else if (process.env.NODE_ENV !== "production") {
     await db.update(teachersTable)
       .set({ passwordHash: hashPassword("123456") })
       .where(eq(teachersTable.email, "teacher@supersheldon.com"));
