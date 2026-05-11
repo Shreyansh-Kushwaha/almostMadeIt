@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: Super Sheldon AI Teacher Dashboard API
+  description: ClassPulse AI — Real-time classroom intelligence API
 servers:
   - url: /api
     description: Base API path
@@ -20,6 +20,18 @@ tags:
     description: AI analysis reports
   - name: dashboard
     description: Dashboard statistics
+  - name: students
+    description: Student records (ClassPulse)
+  - name: parents
+    description: Parent records & parent-facing reports
+  - name: churn
+    description: Churn-risk predictions
+  - name: interventions
+    description: Class Rescue AI suggestions
+  - name: admin
+    description: Internal team / admin analytics
+  - name: classpulse
+    description: ClassPulse real-time AI signals
 
 paths:
   /healthz:
@@ -92,20 +104,78 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
-  /classes:
+  /teachers/select:
     get:
-      operationId: listClasses
-      tags: [classes]
-      summary: List all classes for the current teacher
+      operationId: listTeachersForSelect
+      tags: [auth]
+      summary: Public list of teachers for the picker screen
       responses:
         "200":
-          description: List of classes
+          description: Teacher picker list
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Class"
+                  $ref: "#/components/schemas/TeacherOption"
+
+  /auth/select-teacher:
+    post:
+      operationId: selectTeacher
+      tags: [auth]
+      summary: Issue an auth token by teacher id (no password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelectTeacherBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "404":
+          description: Teacher not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /classes:
+    get:
+      operationId: listClasses
+      tags: [classes]
+      summary: List classes for the current teacher (paginated + filterable)
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 12 }
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [upcoming, completed, cancelled, active]
+        - name: q
+          in: query
+          required: false
+          description: Search by student name
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated list of classes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedClasses"
 
   /classes/{classId}:
     get:
@@ -251,20 +321,273 @@ paths:
                 items:
                   $ref: "#/components/schemas/WeeklyPerformancePoint"
 
-  /dashboard/rankings:
+  # ──────────────────────────────────────────────────────────────────────────
+  # ClassPulse AI: students, parents, churn, interventions, admin
+  # ──────────────────────────────────────────────────────────────────────────
+
+  /students:
     get:
-      operationId: getTeacherRankings
-      tags: [dashboard]
-      summary: Get teacher ranking leaderboard
+      operationId: listStudents
+      tags: [students]
+      summary: List students for the current teacher
       responses:
         "200":
-          description: Teacher rankings
+          description: List of students
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/TeacherRanking"
+                  $ref: "#/components/schemas/Student"
+
+  /students/{studentId}:
+    get:
+      operationId: getStudent
+      tags: [students]
+      summary: Get a single student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /students/{studentId}/parent-report:
+    get:
+      operationId: getParentReport
+      tags: [parents]
+      summary: Get the parent-facing summary for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Parent-facing report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParentReport"
+
+  /students/{studentId}/churn:
+    get:
+      operationId: getStudentChurn
+      tags: [churn]
+      summary: Latest churn-risk prediction for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Churn prediction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChurnPrediction"
+
+  /churn/alerts:
+    get:
+      operationId: listChurnAlerts
+      tags: [churn]
+      summary: All high-risk churn alerts visible to the current teacher
+      responses:
+        "200":
+          description: Churn alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChurnAlert"
+
+  /sessions/{sessionId}/transcript:
+    post:
+      operationId: appendTranscript
+      tags: [classpulse]
+      summary: Append an utterance to the live transcript log
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendTranscriptBody"
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transcript"
+
+  /sessions/{sessionId}/quiz-event:
+    post:
+      operationId: recordQuizEvent
+      tags: [classpulse]
+      summary: Record a quiz response captured during a live session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordQuizEventBody"
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizEvent"
+
+  /sessions/{sessionId}/live-signals:
+    get:
+      operationId: getLiveSignals
+      tags: [classpulse]
+      summary: Live engagement, confusion, and mood signals for an active session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Live signal snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveSignals"
+
+  /ai/confusion:
+    post:
+      operationId: detectConfusion
+      tags: [classpulse]
+      summary: Real-time confusion detection for a transcript window
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DetectConfusionBody"
+      responses:
+        "200":
+          description: Confusion signal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfusionSignal"
+
+  /interventions/{sessionId}:
+    get:
+      operationId: listInterventions
+      tags: [interventions]
+      summary: List Class Rescue AI suggestions for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Interventions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Intervention"
+
+  /interventions:
+    post:
+      operationId: createIntervention
+      tags: [interventions]
+      summary: Record an intervention applied or dismissed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInterventionBody"
+      responses:
+        "201":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Intervention"
+
+  /admin/teachers:
+    get:
+      operationId: adminListTeachers
+      tags: [admin]
+      summary: Internal team view of all teachers and their performance
+      responses:
+        "200":
+          description: Teachers with KPIs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeacherKpi"
+
+  /admin/students:
+    get:
+      operationId: adminListStudents
+      tags: [admin]
+      summary: Internal team view of all students with engagement & churn snapshot
+      responses:
+        "200":
+          description: Students with KPIs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudentKpi"
+
+  /admin/retention:
+    get:
+      operationId: adminRetention
+      tags: [admin]
+      summary: Aggregate retention analytics
+      responses:
+        "200":
+          description: Retention snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionSnapshot"
 
 components:
   schemas:
@@ -306,6 +629,29 @@ components:
         teacher:
           $ref: "#/components/schemas/Teacher"
       required: [token, teacher]
+
+    SelectTeacherBody:
+      type: object
+      properties:
+        teacherId:
+          type: integer
+      required: [teacherId]
+
+    TeacherOption:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        subject:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        totalClasses:
+          type: integer
+      required: [id, name, subject, totalClasses]
 
     Teacher:
       type: object
@@ -359,6 +705,23 @@ components:
           type: string
           nullable: true
       required: [id, teacherId, studentName, subject, scheduledAt, durationMinutes, platform, status]
+
+    PaginatedClasses:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Class"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        hasMore:
+          type: boolean
+      required: [items, total, page, limit, hasMore]
 
     StartSessionBody:
       type: object
@@ -422,6 +785,18 @@ components:
           type: number
         internetStability:
           type: number
+        understandingScore:
+          type: number
+          nullable: true
+        satisfactionScore:
+          type: number
+          nullable: true
+        teacherCompatibilityScore:
+          type: number
+          nullable: true
+        churnRiskScore:
+          type: number
+          nullable: true
         aiSummary:
           type: string
         suggestions:
@@ -440,6 +815,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TimelinePoint"
+        moodTimeline:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/MoodPoint"
+        confusionTimeline:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ConfusionPoint"
         createdAt:
           type: string
           format: date-time
@@ -501,17 +886,363 @@ components:
           type: integer
       required: [day, score, engagement, classes]
 
-    TeacherRanking:
+    # ────────────────────────────────────────────────────────────────────────
+    # ClassPulse AI schemas
+    # ────────────────────────────────────────────────────────────────────────
+
+    MoodPoint:
       type: object
       properties:
-        rank:
+        minute:
+          type: integer
+        mood:
+          type: string
+        valence:
+          type: number
+        energy:
+          type: number
+      required: [minute, mood, valence, energy]
+
+    ConfusionPoint:
+      type: object
+      properties:
+        minute:
+          type: integer
+        confusion:
+          type: number
+      required: [minute, confusion]
+
+    Student:
+      type: object
+      properties:
+        id:
           type: integer
         name:
           type: string
+        email:
+          type: string
+          nullable: true
+        grade:
+          type: string
+          nullable: true
         subject:
           type: string
-        score:
+          nullable: true
+        primaryTeacherId:
+          type: integer
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+      required: [id, name]
+
+    StudentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Student"
+        - type: object
+          properties:
+            recentReports:
+              type: array
+              items:
+                $ref: "#/components/schemas/Report"
+            churn:
+              $ref: "#/components/schemas/ChurnPrediction"
+              nullable: true
+          required: [recentReports]
+
+    Parent:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+      required: [id, studentId, name]
+
+    ParentReport:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        engagementScore:
           type: number
-        isCurrentTeacher:
+        understandingScore:
+          type: number
+        confidenceScore:
+          type: number
+        summary:
+          type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        weakAreas:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, studentId, periodStart, periodEnd, engagementScore, understandingScore, confidenceScore, summary, strengths, weakAreas, recommendations, createdAt]
+
+    ChurnPrediction:
+      type: object
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        riskScore:
+          type: number
+        reasons:
+          type: array
+          items:
+            type: string
+        signals:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: number
+            required: [name, value]
+        computedAt:
+          type: string
+          format: date-time
+      required: [id, studentId, riskScore, reasons, signals, computedAt]
+
+    ChurnAlert:
+      type: object
+      properties:
+        student:
+          $ref: "#/components/schemas/Student"
+        prediction:
+          $ref: "#/components/schemas/ChurnPrediction"
+      required: [student, prediction]
+
+    Transcript:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        speaker:
+          type: string
+        text:
+          type: string
+        capturedAt:
+          type: string
+          format: date-time
+      required: [id, sessionId, speaker, text, capturedAt]
+
+    AppendTranscriptBody:
+      type: object
+      properties:
+        speaker:
+          type: string
+          enum: [teacher, student, system]
+        text:
+          type: string
+      required: [speaker, text]
+
+    QuizEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        studentId:
+          type: integer
+          nullable: true
+        question:
+          type: string
+        answer:
+          type: string
+        correct:
           type: boolean
-      required: [rank, name, subject, score, isCurrentTeacher]
+        responseSeconds:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, sessionId, question, answer, correct, createdAt]
+
+    RecordQuizEventBody:
+      type: object
+      properties:
+        studentId:
+          type: integer
+          nullable: true
+        question:
+          type: string
+        answer:
+          type: string
+        correct:
+          type: boolean
+        responseSeconds:
+          type: number
+          nullable: true
+      required: [question, answer, correct]
+
+    LiveSignals:
+      type: object
+      properties:
+        engagement:
+          type: number
+        confusion:
+          type: number
+        mood:
+          type: string
+        moodValence:
+          type: number
+        moodEnergy:
+          type: number
+        attention:
+          type: number
+        suggestion:
+          type: string
+          nullable: true
+      required: [engagement, confusion, mood, moodValence, moodEnergy, attention]
+
+    DetectConfusionBody:
+      type: object
+      properties:
+        transcript:
+          type: string
+      required: [transcript]
+
+    ConfusionSignal:
+      type: object
+      properties:
+        confusion:
+          type: number
+        signals:
+          type: array
+          items:
+            type: string
+        rescueSuggestion:
+          type: string
+      required: [confusion, signals, rescueSuggestion]
+
+    Intervention:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+          nullable: true
+        studentId:
+          type: integer
+          nullable: true
+        kind:
+          type: string
+          enum: [confusion, silent, low_engagement, churn_risk, rescue]
+        suggestion:
+          type: string
+        status:
+          type: string
+          enum: [suggested, applied, dismissed]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, kind, suggestion, status, createdAt]
+
+    CreateInterventionBody:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+          nullable: true
+        studentId:
+          type: integer
+          nullable: true
+        kind:
+          type: string
+          enum: [confusion, silent, low_engagement, churn_risk, rescue]
+        suggestion:
+          type: string
+        status:
+          type: string
+          enum: [suggested, applied, dismissed]
+      required: [kind, suggestion]
+
+    TeacherKpi:
+      type: object
+      properties:
+        teacher:
+          $ref: "#/components/schemas/Teacher"
+        avgEngagement:
+          type: number
+        avgUnderstanding:
+          type: number
+        churnRiskAvg:
+          type: number
+        sessionsLast30d:
+          type: integer
+      required: [teacher, avgEngagement, avgUnderstanding, churnRiskAvg, sessionsLast30d]
+
+    StudentKpi:
+      type: object
+      properties:
+        student:
+          $ref: "#/components/schemas/Student"
+        avgEngagement:
+          type: number
+        avgUnderstanding:
+          type: number
+        churnRiskScore:
+          type: number
+        lastSessionAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [student, avgEngagement, avgUnderstanding, churnRiskScore]
+
+    RetentionSnapshot:
+      type: object
+      properties:
+        totalStudents:
+          type: integer
+        atRisk:
+          type: integer
+        churned30d:
+          type: integer
+        retainedRate:
+          type: number
+        riskBuckets:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              count:
+                type: integer
+            required: [label, count]
+      required: [totalStudents, atRisk, churned30d, retainedRate, riskBuckets]
