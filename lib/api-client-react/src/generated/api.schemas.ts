@@ -41,6 +41,20 @@ export interface SelectTeacherBody {
   teacherId: number;
 }
 
+export interface UpdateMeBody {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name?: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  subject?: string;
+  avatarUrl?: string | null;
+}
+
 export interface TeacherOption {
   id: number;
   name: string;

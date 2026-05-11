@@ -96,6 +96,40 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
+const UpdateMeBody = z.object({
+  name: z.string().min(1).max(120).optional(),
+  subject: z.string().min(1).max(120).optional(),
+  avatarUrl: z.string().nullable().optional(),
+});
+
+router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
+  const authReq = req as AuthRequest;
+  const parsed = UpdateMeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+  if (parsed.data.subject !== undefined) updates.subject = parsed.data.subject;
+  if (parsed.data.avatarUrl !== undefined) updates.avatarUrl = parsed.data.avatarUrl;
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No updatable fields supplied" });
+    return;
+  }
+  await db.update(teachersTable).set(updates).where(eq(teachersTable.id, authReq.teacher.id));
+  const [t] = await db.select().from(teachersTable).where(eq(teachersTable.id, authReq.teacher.id));
+  res.json({
+    id: t.id,
+    name: t.name,
+    email: t.email,
+    subject: t.subject,
+    avatarUrl: t.avatarUrl,
+    totalClasses: t.totalClasses,
+    avgScore: t.avgScore,
+  });
+});
+
 router.post("/auth/logout", (_req, res): Promise<void> => {
   res.json({ message: "Logged out successfully" });
   return Promise.resolve();

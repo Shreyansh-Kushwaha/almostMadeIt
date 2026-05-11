@@ -90,6 +90,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateMe
+      tags: [auth]
+      summary: Update the current teacher's profile (name, subject, avatarUrl)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeBody"
+      responses:
+        "200":
+          description: Updated teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Teacher"
 
   /auth/logout:
     post:
@@ -655,6 +672,21 @@ components:
         teacherId:
           type: integer
       required: [teacherId]
+
+    UpdateMeBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 120
+        avatarUrl:
+          type: string
+          nullable: true
 
     TeacherOption:
       type: object

@@ -49,6 +49,29 @@ export const GetMeResponse = zod.object({
 });
 
 /**
+ * @summary Update the current teacher's profile (name, subject, avatarUrl)
+ */
+export const updateMeBodyNameMax = 120;
+
+export const updateMeBodySubjectMax = 120;
+
+export const UpdateMeBody = zod.object({
+  name: zod.string().min(1).max(updateMeBodyNameMax).optional(),
+  subject: zod.string().min(1).max(updateMeBodySubjectMax).optional(),
+  avatarUrl: zod.string().nullish(),
+});
+
+export const UpdateMeResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  subject: zod.string(),
+  avatarUrl: zod.string().nullish(),
+  totalClasses: zod.number(),
+  avgScore: zod.number(),
+});
+
+/**
  * @summary Logout
  */
 export const LogoutResponse = zod.object({

@@ -8,7 +8,15 @@
 export const DEMO_TOKEN = "demo-token";
 export const DEMO_TEACHER_ID = -1; // sentinel — never written to DB
 
-const DEMO_TEACHER = {
+const DEMO_TEACHER: {
+  id: number;
+  name: string;
+  email: string;
+  subject: string;
+  avatarUrl: string | null;
+  totalClasses: number;
+  avgScore: number;
+} = {
   id: DEMO_TEACHER_ID,
   name: "Demo",
   email: "demo@classpulse.ai",
@@ -333,6 +341,13 @@ export function getDemoResponse(method: string, fullUrl: string, body?: unknown)
   }
   if (M === "POST" && eq("/api/auth/logout")) return { message: "Logged out successfully" };
   if (M === "GET" && eq("/api/auth/me")) return DEMO_TEACHER;
+  if (M === "PATCH" && eq("/api/auth/me")) {
+    const b = (body as { name?: string; subject?: string; avatarUrl?: string | null } | undefined) ?? {};
+    if (b.name !== undefined) DEMO_TEACHER.name = b.name;
+    if (b.subject !== undefined) DEMO_TEACHER.subject = b.subject;
+    if (b.avatarUrl !== undefined) DEMO_TEACHER.avatarUrl = b.avatarUrl;
+    return DEMO_TEACHER;
+  }
 
   // ── Classes ──
   if (M === "GET" && eq("/api/classes")) return paginatedClasses(query);

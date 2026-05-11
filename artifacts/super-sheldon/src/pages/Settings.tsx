@@ -1,21 +1,70 @@
-import { useGetMe } from "@workspace/api-client-react";
+import { useEffect, useState } from "react";
+import {
+  useGetMe,
+  useUpdateMe,
+  getGetMeQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AvatarPicker from "@/components/AvatarPicker";
+import { Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Settings() {
+  const qc = useQueryClient();
   const { data: user, isLoading } = useGetMe();
+  const [name, setName] = useState("");
+  const [subject, setSubject] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name);
+      setSubject(user.subject);
+    }
+  }, [user]);
+
+  const updateMutation = useUpdateMe({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      },
+      onError: () => {
+        toast.error("Could not save changes");
+      },
+    },
+  });
 
   if (isLoading || !user) {
     return <Skeleton className="h-64 w-full max-w-2xl" />;
   }
 
+  const dirty = name !== user.name || subject !== user.subject;
+
   const handleSave = () => {
-    toast.success("Settings saved successfully");
+    updateMutation.mutate(
+      { data: { name, subject } },
+      {
+        onSuccess: () => toast.success("Profile updated"),
+      },
+    );
+  };
+
+  const handleAvatarPick = (avatarUrl: string | null) => {
+    updateMutation.mutate(
+      { data: { avatarUrl } },
+      {
+        onSuccess: () => {
+          toast.success(avatarUrl ? "Avatar updated" : "Avatar removed");
+          setPickerOpen(false);
+        },
+      },
+    );
   };
 
   return (
@@ -31,31 +80,74 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center gap-6">
-            <Avatar className="w-20 h-20">
-              <AvatarImage src={user.avatarUrl || undefined} />
-              <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <Button variant="outline">Change Avatar</Button>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              data-testid="button-open-avatar-picker"
+              className="relative group rounded-full"
+            >
+              <Avatar className="w-20 h-20 ring-2 ring-primary/30 transition-all group-hover:ring-primary/60">
+                <AvatarImage src={user.avatarUrl || undefined} />
+                <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <span className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium">
+                <Pencil className="w-4 h-4 mr-1" /> Change
+              </span>
+            </button>
+            <div>
+              <Button variant="outline" onClick={() => setPickerOpen(true)}>
+                Choose from gallery
+              </Button>
+              <p className="text-[11px] text-muted-foreground mt-1.5">30 graphic avatars to pick from</p>
+            </div>
           </div>
 
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label>Full Name</Label>
-              <Input defaultValue={user.name} />
+              <Label htmlFor="settings-name">Full Name</Label>
+              <Input
+                id="settings-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                data-testid="input-settings-name"
+              />
             </div>
             <div className="grid gap-2">
-              <Label>Email</Label>
-              <Input defaultValue={user.email} disabled className="bg-muted" />
+              <Label htmlFor="settings-email">Email</Label>
+              <Input id="settings-email" defaultValue={user.email} disabled className="bg-muted" />
             </div>
             <div className="grid gap-2">
-              <Label>Subject</Label>
-              <Input defaultValue={user.subject} />
+              <Label htmlFor="settings-subject">Subject</Label>
+              <Input
+                id="settings-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                data-testid="input-settings-subject"
+              />
             </div>
           </div>
 
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button
+            onClick={handleSave}
+            disabled={!dirty || updateMutation.isPending}
+            data-testid="button-save-settings"
+          >
+            {updateMutation.isPending ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</>
+            ) : (
+              "Save Changes"
+            )}
+          </Button>
         </CardContent>
       </Card>
+
+      <AvatarPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        currentUrl={user.avatarUrl}
+        isSaving={updateMutation.isPending}
+        onSelect={handleAvatarPick}
+      />
     </div>
   );
 }
