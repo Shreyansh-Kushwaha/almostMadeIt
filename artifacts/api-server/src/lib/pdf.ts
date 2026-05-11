@@ -86,9 +86,10 @@ export async function renderReportPdfBytes(
     use_print: false,
     // Match the SVG/img-heavy print layout: don't strip colors.
     sandbox: false,
-    // Generous overall timeout — PDFShift charges per render anyway,
-    // 30-60s for a complex page is normal.
-    timeout: 60,
+    // PDFShift's free tier caps timeout at 30s. That's the page-render
+    // budget on their end; our overall HTTP fetch still has its own
+    // AbortController timeout (PDF_TIMEOUT_MS) wrapping the whole call.
+    timeout: 30,
   };
 
   // PDFShift uses HTTP Basic auth with username "api" and password = key.
