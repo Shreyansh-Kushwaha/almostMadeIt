@@ -18,6 +18,43 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
+// Backend status callback: lets the host app observe network-level failures
+// (cold-start cases on free hosting tiers, transient outages, etc.) and surface
+// a UX hint such as "waking the backend".
+export type BackendStatus = "online" | "waking" | "error";
+let _statusListener: ((s: BackendStatus, detail?: { status?: number; url?: string }) => void) | null = null;
+
+export function setBackendStatusListener(
+  fn: ((s: BackendStatus, detail?: { status?: number; url?: string }) => void) | null,
+): void {
+  _statusListener = fn;
+}
+
+function notifyStatus(s: BackendStatus, detail?: { status?: number; url?: string }): void {
+  if (_statusListener) {
+    try {
+      _statusListener(s, detail);
+    } catch {
+      // listeners must not throw
+    }
+  }
+}
+
+// Demo mode handler — when set, the host app can intercept any request and
+// return canned fixture data, bypassing the network entirely. Used for safe
+// hackathon-style demos where the real backend or DB shouldn't be hit.
+export type DemoHandler = (
+  method: string,
+  url: string,
+  body?: unknown,
+) => Promise<unknown | null> | unknown | null;
+
+let _demoHandler: DemoHandler | null = null;
+
+export function setDemoHandler(fn: DemoHandler | null): void {
+  _demoHandler = fn;
+}
+
 /**
  * Set a base URL that is prepended to every relative request URL
  * (i.e. paths that start with `/`).
@@ -365,7 +402,40 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Demo-mode interception: if a handler is registered and returns a non-null
+  // value, treat it as a successful 2xx response and skip the network call.
+  if (_demoHandler) {
+    let parsedBody: unknown = undefined;
+    if (typeof init.body === "string") {
+      try {
+        parsedBody = JSON.parse(init.body);
+      } catch {
+        parsedBody = init.body;
+      }
+    }
+    const demoResult = await _demoHandler(method, requestInfo.url, parsedBody);
+    if (demoResult !== null && demoResult !== undefined) {
+      notifyStatus("online", { status: 200, url: requestInfo.url });
+      return demoResult as T;
+    }
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, method, headers });
+  } catch (err) {
+    // network failure — backend likely cold-starting or unreachable
+    notifyStatus("waking", { url: requestInfo.url });
+    throw err;
+  }
+
+  // 502/503/504 typically mean the host is starting up (Render/Fly cold start)
+  // 408 = request timeout, also consistent with cold start
+  if ([502, 503, 504, 408].includes(response.status)) {
+    notifyStatus("waking", { status: response.status, url: requestInfo.url });
+  } else {
+    notifyStatus("online", { status: response.status, url: requestInfo.url });
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
