@@ -16,16 +16,28 @@ services:
         generateValue: true
       - key: CORS_ORIGIN
         sync: false
-      - key: GEMINI_API_KEY
-        sync: false
       - key: SEED_DEMO
         value: "true"
+      # Wise/Mongo — teacher + student rosters and Wise-keyed session lookups
+      - key: MONGO_CONNECTION_STRING
+        sync: false
+      - key: MONGO_DATABASE_NAME
+        value: "pre-sales-crm"
+      # Azure OpenAI — post-session AI report generation
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_DEPLOYMENT
+        value: "gpt-5.1"
+      - key: AZURE_OPENAI_API_VERSION
+        value: "2024-12-01-preview"
       # PDF render + n8n email delivery
       - key: FRONTEND_URL
         sync: false
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_SERVICE_KEY
+      - key: SUPABASE_KEY
         sync: false
       - key: N8N_EMAIL_WEBHOOK_URL
         sync: false
