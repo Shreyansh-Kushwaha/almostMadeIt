@@ -77,10 +77,12 @@ export async function renderReportPdfBytes(
 
   const body = {
     source: sourceUrl,
-    // Wait for the print page's data-ready handshake — same selector the
-    // page itself sets after useGetReport resolves. Without this we'd
-    // capture the "Loading report…" placeholder.
-    wait_for: '.page-wrap[data-ready="true"]',
+    // PDFShift's `wait_for` expects a JS function name defined on the page,
+    // not a CSS selector. The print page exposes `window.pdfshiftReady`
+    // which returns true once useGetReport resolves and the .page-wrap is
+    // mounted with data-ready="true". Without this we'd capture the
+    // "Loading report…" placeholder.
+    wait_for: "pdfshiftReady",
     // Render with screen media (matches how the page was designed). The
     // page already caps itself at 21cm width which matches A4.
     use_print: false,

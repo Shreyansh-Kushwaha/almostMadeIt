@@ -202,12 +202,18 @@ export default function ReportPrint() {
     };
   }, []);
 
-  // Bridge state used by the Playwright renderer: it waits for `load` THEN
-  // 300ms, so we expose readiness via `data-ready` on the page-wrap.
+  // Readiness handshake for the PDF renderer (PDFShift). PDFShift's `wait_for`
+  // takes a *function name* defined on the page, not a CSS selector, so we
+  // expose `window.pdfshiftReady` which returns true once the report has
+  // finished loading. The data-ready attribute is kept for human debugging.
   const [ready, setReady] = useState(false);
   useEffect(() => {
     if (report) setReady(true);
   }, [report]);
+  useEffect(() => {
+    (window as unknown as { pdfshiftReady?: () => boolean }).pdfshiftReady =
+      () => !!document.querySelector('.page-wrap[data-ready="true"]');
+  }, []);
 
   if (isLoading) {
     return (
