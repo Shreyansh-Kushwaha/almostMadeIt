@@ -2,10 +2,18 @@ import { Router, type IRouter } from "express";
 import { db, studentsTable, classesTable, reportsTable, churnPredictionsTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../lib/auth";
+import {
+  listStudents as listMongoStudents,
+  getStudentById as getMongoStudent,
+  getStudentsByTeacher as getMongoStudentsByTeacher,
+} from "@workspace/mongo";
 
 const router: IRouter = Router();
 
-function formatStudent(s: typeof studentsTable.$inferSelect) {
+function formatStudent(
+  s: typeof studentsTable.$inferSelect,
+  classCount = 0,
+) {
   return {
     id: s.id,
     name: s.name,
@@ -14,6 +22,7 @@ function formatStudent(s: typeof studentsTable.$inferSelect) {
     subject: s.subject,
     primaryTeacherId: s.primaryTeacherId,
     avatarUrl: s.avatarUrl,
+    classCount,
   };
 }
 
@@ -29,20 +38,59 @@ function syntheticIdFromName(name: string): number {
 
 router.get("/students", requireAuth, async (req, res): Promise<void> => {
   const authReq = req as AuthRequest;
-  // A teacher's students come from three sources, in priority order:
-  //   1. Real student rows where primaryTeacherId = current teacher
-  //   2. Real student rows linked via classes.studentId
-  //   3. Synthesized students derived from class.studentName when no FK exists
-  //      (common in legacy data where classes have a name but no student row)
-  const direct = await db
-    .select()
-    .from(studentsTable)
-    .where(eq(studentsTable.primaryTeacherId, authReq.teacher.id));
+  // ── Wise (Mongo) teacher → read enrolled students from Wise directly. ──
+  // The mongo service does a teacher → classroom_teachers → student_classrooms
+  // → wise_students two-hop join.
+  if (authReq.teacher.wiseTeacherId && authReq.role !== "admin") {
+    const wiseStudents = await getMongoStudentsByTeacher(authReq.teacher.wiseTeacherId);
+    res.json(
+      wiseStudents.map((s) => ({
+        id: s.wise_student_id,
+        name: s.name ?? "Student",
+        email: s.email,
+        grade: s.grade,
+        subject: s.subject,
+        primaryTeacherId: null,
+        avatarUrl: null,
+        classCount: s.classes?.length ?? 0,
+      }))
+    );
+    return;
+  }
 
-  const cls = await db
-    .select()
-    .from(classesTable)
-    .where(eq(classesTable.teacherId, authReq.teacher.id));
+  // ── Admin role → return ALL Wise students globally. ──
+  if (authReq.role === "admin") {
+    const all = await listMongoStudents({ limit: 5000 });
+    res.json(
+      all.map((s) => ({
+        id: s.wise_student_id,
+        name: s.name ?? "Student",
+        email: s.email,
+        grade: s.grade,
+        subject: s.subject,
+        primaryTeacherId: null,
+        avatarUrl: null,
+        classCount: s.classes?.length ?? 0,
+      }))
+    );
+    return;
+  }
+
+  // ── Legacy Supabase teacher (no Wise ID) → keep the old behavior. ──
+  const isAdmin = false; // already handled above
+  const direct = isAdmin
+    ? await db.select().from(studentsTable)
+    : await db
+        .select()
+        .from(studentsTable)
+        .where(eq(studentsTable.primaryTeacherId, authReq.teacher.id));
+
+  const cls = isAdmin
+    ? await db.select().from(classesTable)
+    : await db
+        .select()
+        .from(classesTable)
+        .where(eq(classesTable.teacherId, authReq.teacher.id));
 
   const linkedIds = new Set<number>();
   for (const c of cls) {
@@ -60,23 +108,46 @@ router.get("/students", requireAuth, async (req, res): Promise<void> => {
   const realStudents = [...direct, ...extra];
   const realNames = new Set(realStudents.map((s) => s.name.trim().toLowerCase()));
 
+  // Count classes per student (by FK studentId and by name for synthesized).
+  const classCountById = new Map<number, number>();
+  const classCountByName = new Map<string, number>();
+  for (const c of cls) {
+    if (c.studentId != null) {
+      classCountById.set(c.studentId, (classCountById.get(c.studentId) ?? 0) + 1);
+    }
+    const key = c.studentName.trim().toLowerCase();
+    classCountByName.set(key, (classCountByName.get(key) ?? 0) + 1);
+  }
+
   // Synthesize from class.studentName when nothing else covers it.
   const synthByName = new Map<string, typeof classesTable.$inferSelect>();
   for (const c of cls) {
     const key = c.studentName.trim().toLowerCase();
     if (!realNames.has(key) && !synthByName.has(key)) synthByName.set(key, c);
   }
-  const synthesized = [...synthByName.values()].map((c) => ({
-    id: syntheticIdFromName(c.studentName.trim().toLowerCase()),
-    name: c.studentName,
-    email: null,
-    grade: c.grade,
-    subject: c.subject,
-    primaryTeacherId: authReq.teacher.id,
-    avatarUrl: null,
-  }));
+  const synthesized = [...synthByName.values()].map((c) => {
+    const key = c.studentName.trim().toLowerCase();
+    return {
+      id: syntheticIdFromName(key),
+      name: c.studentName,
+      email: null,
+      grade: c.grade,
+      subject: c.subject,
+      primaryTeacherId: authReq.teacher.id,
+      avatarUrl: null,
+      classCount: classCountByName.get(key) ?? 0,
+    };
+  });
 
-  res.json([...realStudents.map(formatStudent), ...synthesized]);
+  res.json([
+    ...realStudents.map((s) => {
+      // Prefer FK count when present, fall back to a name match for safety.
+      const byId = classCountById.get(s.id) ?? 0;
+      const byName = classCountByName.get(s.name.trim().toLowerCase()) ?? 0;
+      return formatStudent(s, byId || byName);
+    }),
+    ...synthesized,
+  ]);
 });
 
 function reportRow(r: typeof reportsTable.$inferSelect) {
@@ -110,7 +181,51 @@ function reportRow(r: typeof reportsTable.$inferSelect) {
 
 router.get("/students/:studentId", requireAuth, async (req, res): Promise<void> => {
   const authReq = req as AuthRequest;
-  const studentId = parseInt(String(req.params.studentId), 10);
+  const rawId = String(req.params.studentId);
+
+  // ── Mongo string ID (24-char hex Wise ObjectId-as-string) ──
+  if (/^[a-fA-F0-9]{24}$/.test(rawId)) {
+    const ws = await getMongoStudent(rawId);
+    if (!ws) {
+      res.status(404).json({ error: "Student not found" });
+      return;
+    }
+    const wiseReports = await db
+      .select()
+      .from(reportsTable)
+      .where(eq(reportsTable.wiseStudentId, ws.wise_student_id))
+      .orderBy(desc(reportsTable.createdAt));
+    const [churn] = await db
+      .select()
+      .from(churnPredictionsTable)
+      .where(eq(churnPredictionsTable.wiseStudentId, ws.wise_student_id))
+      .orderBy(desc(churnPredictionsTable.computedAt));
+
+    res.json({
+      id: ws.wise_student_id,
+      name: ws.name ?? "Student",
+      email: ws.email,
+      grade: ws.grade,
+      subject: ws.subject,
+      primaryTeacherId: null,
+      avatarUrl: null,
+      classCount: ws.classes?.length ?? 0,
+      recentReports: wiseReports.map(reportRow),
+      churn: churn
+        ? {
+            id: churn.id,
+            studentId: churn.wiseStudentId ?? churn.studentId,
+            riskScore: churn.riskScore,
+            reasons: churn.reasons,
+            signals: churn.signals,
+            computedAt: churn.computedAt.toISOString(),
+          }
+        : null,
+    });
+    return;
+  }
+
+  const studentId = parseInt(rawId, 10);
   if (!Number.isFinite(studentId)) {
     res.status(400).json({ error: "Invalid student ID" });
     return;
