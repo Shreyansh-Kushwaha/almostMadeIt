@@ -8,6 +8,7 @@ import { BrainCircuit, ThumbsUp, TrendingUp, AlertTriangle } from "lucide-react"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
+import MoodTimeline, { type MoodPoint } from "@/components/MoodTimeline";
 
 export default function ReportDetail() {
   const { reportId } = useParams();
@@ -50,6 +51,30 @@ export default function ReportDetail() {
         <ScoreCard title="Interaction" score={report.interactionScore} />
         <ScoreCard title="Confidence" score={report.speakingConfidence} />
       </div>
+
+      {/* ClassPulse AI scores */}
+      {(() => {
+        const r = report as any;
+        const has =
+          r.understandingScore != null || r.satisfactionScore != null ||
+          r.teacherCompatibilityScore != null || r.churnRiskScore != null;
+        if (!has) return null;
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {r.understandingScore != null && <ScoreCard title="Understanding" score={Math.round(r.understandingScore)} />}
+            {r.satisfactionScore != null && <ScoreCard title="Satisfaction" score={Math.round(r.satisfactionScore)} />}
+            {r.teacherCompatibilityScore != null && <ScoreCard title="Compatibility" score={Math.round(r.teacherCompatibilityScore)} />}
+            {r.churnRiskScore != null && <ScoreCard title="Churn Risk" score={Math.round(r.churnRiskScore)} />}
+          </div>
+        );
+      })()}
+
+      {/* Mood timeline (if Azure OpenAI returned one) */}
+      {(() => {
+        const mood = (report as any).moodTimeline as MoodPoint[] | undefined;
+        if (!mood || mood.length === 0) return null;
+        return <MoodTimeline data={mood} />;
+      })()}
 
       <Card className="glass-card">
         <CardHeader>

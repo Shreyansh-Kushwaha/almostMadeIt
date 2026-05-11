@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BrainCircuit, X, Send, MessageSquare, ExternalLink } from "lucide-react";
-import { useGetActiveSession } from "@workspace/api-client-react";
+import { X, Send, MessageSquare, ExternalLink } from "lucide-react";
+import ClassPulseLogo from "./ClassPulseLogo";
+import { useGetActiveSession, getGetActiveSessionQueryKey } from "@workspace/api-client-react";
 import { toast } from "sonner";
 
 interface Message {
@@ -35,7 +36,9 @@ export default function FloatingAssistant() {
     { id: "init", role: "ai", text: "Hi! Ask me anything about your current teaching session. I can help explain concepts, suggest strategies, or answer questions." },
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { data: activeSession } = useGetActiveSession({ query: { refetchInterval: 5000 } });
+  const { data: activeSession } = useGetActiveSession({
+    query: { refetchInterval: 5000, queryKey: getGetActiveSessionQueryKey() },
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,10 +96,8 @@ export default function FloatingAssistant() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#ff7a00] flex items-center justify-center shadow-[0_0_10px_#ff7a0088]">
-                  <BrainCircuit className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span className="text-sm font-semibold text-white">Sheldon AI</span>
+                <ClassPulseLogo size={22} />
+                <span className="text-sm font-semibold text-white">ClassPulse AI</span>
                 {activeSession?.session && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/20">Live</span>
                 )}

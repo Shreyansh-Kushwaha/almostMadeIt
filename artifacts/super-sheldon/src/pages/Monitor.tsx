@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Send, BrainCircuit, X, Activity, Wifi, Eye, Volume2, MessageSquare, Radio } from "lucide-react";
+import ClassPulseLogo from "@/components/ClassPulseLogo";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import ConfusionRadar from "@/components/ConfusionRadar";
+import { ClassPulse, type ConfusionSignal } from "@/lib/classpulse";
 
 interface Message {
   id: string;
@@ -18,39 +21,35 @@ interface TranscriptLine {
   isFinal: boolean;
 }
 
+// Minimal SpeechRecognition typing — lib.dom in this TS version omits these
+// browser APIs, so we declare a structural subset. Properties marked readonly
+// to align with browser semantics and avoid duplicate-declaration conflicts.
+type SpeechRecognitionResultListLike = {
+  readonly length: number;
+  readonly [index: number]: {
+    readonly isFinal: boolean;
+    readonly length: number;
+    readonly [index: number]: { readonly transcript: string; readonly confidence: number };
+  };
+};
+type SpeechRecognitionEventLike = Event & {
+  readonly results: SpeechRecognitionResultListLike;
+  readonly resultIndex: number;
+};
+type SpeechRecognitionLike = EventTarget & {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+};
 declare global {
   interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-  interface SpeechRecognition extends EventTarget {
-    continuous: boolean;
-    interimResults: boolean;
-    lang: string;
-    start(): void;
-    stop(): void;
-    onresult: ((event: SpeechRecognitionEvent) => void) | null;
-    onerror: ((event: Event) => void) | null;
-    onend: (() => void) | null;
-  }
-  interface SpeechRecognitionEvent extends Event {
-    results: SpeechRecognitionResultList;
-    resultIndex: number;
-  }
-  interface SpeechRecognitionResultList {
-    length: number;
-    item(index: number): SpeechRecognitionResult;
-    [index: number]: SpeechRecognitionResult;
-  }
-  interface SpeechRecognitionResult {
-    isFinal: boolean;
-    length: number;
-    item(index: number): SpeechRecognitionAlternative;
-    [index: number]: SpeechRecognitionAlternative;
-  }
-  interface SpeechRecognitionAlternative {
-    transcript: string;
-    confidence: number;
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
   }
 }
 
@@ -103,11 +102,13 @@ export default function Monitor() {
   const [isThinking, setIsThinking] = useState(false);
   const [metrics, setMetrics] = useState({ noise: 12, confidence: 87, attention: 91, internet: 98 });
   const [tab, setTab] = useState<"chat" | "transcript">("chat");
+  const [confusion, setConfusion] = useState<ConfusionSignal | null>(null);
 
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const fullTranscriptRef = useRef<string>("");
+  const lastConfusionTextLenRef = useRef<number>(0);
 
   // Metrics simulation
   useEffect(() => {
@@ -129,6 +130,31 @@ export default function Monitor() {
   useEffect(() => {
     if (transcriptScrollRef.current) transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
   }, [transcript, interimText]);
+
+  // ClassPulse Confusion Radar — poll Azure OpenAI every ~10s while listening
+  useEffect(() => {
+    if (!isListening) return;
+    const tick = async () => {
+      const txt = fullTranscriptRef.current;
+      if (txt.length < 80 || txt.length === lastConfusionTextLenRef.current) return;
+      lastConfusionTextLenRef.current = txt.length;
+      try {
+        const sig = await ClassPulse.detectConfusion(txt.slice(-1500));
+        setConfusion(sig);
+      } catch { /* ignore — radar best-effort */ }
+    };
+    const id = setInterval(tick, 10000);
+    return () => clearInterval(id);
+  }, [isListening]);
+
+  // Persist transcript to backend so the finish-session AI report has it
+  const persistUtterance = useCallback(async (text: string) => {
+    const sid = params.sessionId;
+    if (!sid) return;
+    try {
+      await ClassPulse.appendTranscript(parseInt(sid, 10), "teacher", text);
+    } catch { /* ignore — best-effort */ }
+  }, [params.sessionId]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -155,10 +181,12 @@ export default function Monitor() {
         const result = event.results[i];
         const text = result[0].transcript;
         if (result.isFinal) {
-          const line: TranscriptLine = { id: Date.now().toString(), text: text.trim(), timestamp: new Date(), isFinal: true };
+          const trimmed = text.trim();
+          const line: TranscriptLine = { id: Date.now().toString(), text: trimmed, timestamp: new Date(), isFinal: true };
           setTranscript((prev) => [...prev, line]);
-          fullTranscriptRef.current += text.trim() + " ";
+          fullTranscriptRef.current += trimmed + " ";
           setInterimText("");
+          if (trimmed.length > 3) void persistUtterance(trimmed);
         } else {
           interim += text;
         }
@@ -184,7 +212,7 @@ export default function Monitor() {
     } catch {
       toast.error("Could not start microphone. Check browser permissions.");
     }
-  }, []);
+  }, [persistUtterance]);
 
   const toggleListening = () => {
     if (isListening) {
@@ -224,13 +252,11 @@ export default function Monitor() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#111]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-2">
           <div className="relative">
-            <div className="w-7 h-7 rounded-full bg-[#ff7a00] flex items-center justify-center shadow-[0_0_12px_#ff7a00aa]">
-              <BrainCircuit className="w-4 h-4 text-white" />
-            </div>
+            <ClassPulseLogo size={28} />
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-[#111] animate-pulse" />
           </div>
           <div>
-            <p className="text-sm font-semibold leading-none">Sheldon AI</p>
+            <p className="text-sm font-semibold leading-none">ClassPulse AI</p>
             <p className="text-[10px] text-white/40 mt-0.5">{params.subject} · {params.studentName}</p>
           </div>
         </div>
@@ -267,6 +293,18 @@ export default function Monitor() {
           </div>
         )}
       </div>
+
+      {/* Confusion Radar + Class Rescue */}
+      {confusion && (
+        <div className="px-4 py-2 border-b border-white/5 bg-[#0d0d0d] shrink-0">
+          <ConfusionRadar
+            confusion={confusion.confusion}
+            signals={confusion.signals}
+            rescueSuggestion={confusion.rescueSuggestion}
+            compact={false}
+          />
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="flex border-b border-white/5 shrink-0">
