@@ -19,11 +19,20 @@ export const reportsTable = sheldonSchema.table("reports", {
   speakingConfidence: real("speaking_confidence").notNull(),
   deadAirSeconds: real("dead_air_seconds").notNull(),
   internetStability: real("internet_stability").notNull(),
+  // ClassPulse AI scores (optional — older reports won't have them)
+  understandingScore: real("understanding_score"),
+  satisfactionScore: real("satisfaction_score"),
+  teacherCompatibilityScore: real("teacher_compatibility_score"),
+  churnRiskScore: real("churn_risk_score"),
   aiSummary: text("ai_summary").notNull(),
   suggestions: jsonb("suggestions").notNull().$type<string[]>().default([]),
   highlights: jsonb("highlights").notNull().$type<string[]>().default([]),
   improvementAreas: jsonb("improvement_areas").notNull().$type<string[]>().default([]),
   timelineData: jsonb("timeline_data").notNull().$type<{ minute: number; engagement: number; voiceClarity: number; noise: number }[]>().default([]),
+  // ClassPulse mood timeline: per-minute emotional energy + valence (-1..1)
+  moodTimeline: jsonb("mood_timeline").$type<{ minute: number; mood: string; valence: number; energy: number }[]>().default([]),
+  // Confusion radar timeline: per-minute confusion intensity
+  confusionTimeline: jsonb("confusion_timeline").$type<{ minute: number; confusion: number }[]>().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -13,6 +13,8 @@ export const teachersTable = sheldonSchema.table("teachers", {
   totalClasses: integer("total_classes").notNull().default(0),
   avgScore: real("avg_score").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  externalId: text("external_id"),
+  phone: text("phone"),
 });
 
 export const insertTeacherSchema = createInsertSchema(teachersTable).omit({ id: true, createdAt: true });

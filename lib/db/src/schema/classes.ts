@@ -2,11 +2,13 @@ import { serial, text, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { teachersTable } from "./teachers";
+import { studentsTable } from "./students";
 import { sheldonSchema } from "./_schema";
 
 export const classesTable = sheldonSchema.table("classes", {
   id: serial("id").primaryKey(),
   teacherId: integer("teacher_id").notNull().references(() => teachersTable.id),
+  studentId: integer("student_id").references(() => studentsTable.id),
   studentName: text("student_name").notNull(),
   subject: text("subject").notNull(),
   scheduledAt: timestamp("scheduled_at").notNull(),
@@ -17,6 +19,9 @@ export const classesTable = sheldonSchema.table("classes", {
   grade: text("grade"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  externalId: text("external_id"),
+  externalClassId: text("external_class_id"),
+  country: text("country"),
 });
 
 export const insertClassSchema = createInsertSchema(classesTable).omit({ id: true, createdAt: true });
