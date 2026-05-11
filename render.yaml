@@ -4,8 +4,12 @@ services:
     runtime: node
     plan: free
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server exec playwright install --with-deps chromium && pnpm --filter @workspace/api-server run build
-    startCommand: pnpm --filter @workspace/api-server run start
+    # PLAYWRIGHT_BROWSERS_PATH is prefixed inline (not just as an envVar)
+    # because Render doesn't automatically apply new render.yaml envVars to
+    # existing services — you'd have to sync the blueprint manually. Inline
+    # ensures the path is set every build and every start regardless.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/src/.ms-playwright pnpm --filter @workspace/api-server exec playwright install --with-deps chromium && pnpm --filter @workspace/api-server run build
+    startCommand: PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/src/.ms-playwright pnpm --filter @workspace/api-server run start
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
