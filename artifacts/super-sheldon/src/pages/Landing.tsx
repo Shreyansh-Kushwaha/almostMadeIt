@@ -71,7 +71,6 @@ export default function Landing() {
         <HowItWorks />
         <AIEngine />
         <Testimonials />
-        <Pricing onChoose={go("/login")} />
         <ComplianceStrip />
         <FinalCTA onPrimary={go("/login")} />
         <Footer />
@@ -96,7 +95,7 @@ function Nav({ onGetStarted }: { onGetStarted: () => void }) {
           <span className="font-bold text-[15px] tracking-tight">ClassPulse <span className="text-white/40 font-medium">AI</span></span>
         </div>
         <div className="hidden md:flex items-center gap-7 text-[14px] font-medium text-white/65">
-          {["Product", "Features", "For Teams", "Pricing", "Docs"].map((l) => (
+          {["Product", "Features", "For Teams"].map((l) => (
             <a key={l} href={`#${l.toLowerCase().replace(/\s/g, "-")}`} className="hover:text-white transition-colors">
               {l}
             </a>
@@ -787,92 +786,6 @@ function Testimonials() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// PRICING
-// ──────────────────────────────────────────────────────────────────────────
-
-function Pricing({ onChoose }: { onChoose: () => void }) {
-  const tiers = [
-    {
-      name: "Starter",
-      price: "Free",
-      sub: "14 days · no credit card",
-      features: ["Up to 25 sessions / month", "All 8 signal types", "Email-only support"],
-      cta: "Start free",
-    },
-    {
-      name: "Pro",
-      price: "$49",
-      sub: "per teacher / month",
-      features: ["Unlimited sessions", "Class Rescue + Churn Prediction", "Parent dashboards", "Priority support"],
-      cta: "Get Pro",
-      highlight: true,
-    },
-    {
-      name: "Enterprise",
-      price: "Talk to us",
-      sub: "Multi-tenant + SSO",
-      features: ["Custom integrations", "SSO + audit log", "Dedicated CSM", "Custom retention models"],
-      cta: "Contact sales",
-    },
-  ];
-  return (
-    <section id="pricing" className="py-28">
-      <SectionHeader eyebrow="Pricing" title={<>Pay for what your <span className="text-white/55">teachers run.</span></>} />
-      <div className="max-w-6xl mx-auto px-6 mt-14 grid md:grid-cols-3 gap-5">
-        {tiers.map((t) => (
-          <motion.div
-            key={t.name}
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="relative"
-          >
-            {t.highlight && (
-              <motion.div
-                animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full text-[10px] uppercase tracking-[0.18em] font-bold text-white"
-                style={{ background: "linear-gradient(90deg,#FF7A00,#FFB066)" }}
-              >
-                Recommended
-              </motion.div>
-            )}
-            <GlassCard
-              className={`p-7 h-full ${t.highlight ? "ring-2 ring-[#FF7A00]/40" : ""}`}
-              style={t.highlight ? { boxShadow: "inset 0 1px 0 hsla(0,0%,100%,0.08), 0 0 0 1px hsla(29,100%,60%,0.18), 0 32px 64px -12px hsla(29,100%,40%,0.35)" } : undefined}
-            >
-              <div className="font-semibold text-[15px] mb-1">{t.name}</div>
-              <div className="text-[44px] font-extrabold tracking-tight">{t.price}</div>
-              <div className="text-[12px] text-white/50 mb-6">{t.sub}</div>
-              <button
-                onClick={onChoose}
-                data-cursor="hot"
-                className={`w-full mb-6 rounded-full py-2.5 text-[13.5px] font-semibold transition-colors ${
-                  t.highlight
-                    ? "bg-[#FF7A00] hover:bg-[#FF8A1A] text-white"
-                    : "bg-white/8 hover:bg-white/15 text-white border border-white/12"
-                }`}
-              >
-                {t.cta}
-              </button>
-              <ul className="space-y-2.5">
-                {t.features.map((f) => (
-                  <li key={f} className="flex gap-2.5 text-[13px] text-white/70">
-                    <CheckCircle2 className="w-4 h-4 text-[#FFB066] shrink-0 mt-0.5" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </GlassCard>
-          </motion.div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────
 // COMPLIANCE
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -969,9 +882,9 @@ function Footer() {
           </div>
         </div>
         {[
-          { h: "Product", items: ["Features", "Pricing", "Demo", "Changelog"] },
+          { h: "Product", items: ["Features", "Demo", "Changelog"] },
           { h: "Company", items: ["About", "Blog", "Careers", "Press"] },
-          { h: "Resources", items: ["Docs", "API", "Status", "Help"] },
+          { h: "Resources", items: ["API", "Status", "Help"] },
           { h: "Legal", items: ["Privacy", "Terms", "Security", "FERPA"] },
         ].map((c) => (
           <div key={c.h}>
