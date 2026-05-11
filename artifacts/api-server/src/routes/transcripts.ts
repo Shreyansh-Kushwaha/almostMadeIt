@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, transcriptsTable, sessionsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { z } from "zod/v4";
 import { requireAuth, type AuthRequest } from "../lib/auth";
 
@@ -23,10 +23,21 @@ router.post("/sessions/:sessionId/transcript", requireAuth, async (req, res): Pr
     res.status(400).json({ error: "Invalid body" });
     return;
   }
+  // Session ownership check supports both Supabase int teacher and Wise teacher.
   const [session] = await db
     .select()
     .from(sessionsTable)
-    .where(and(eq(sessionsTable.id, sessionId), eq(sessionsTable.teacherId, authReq.teacher.id)));
+    .where(
+      and(
+        eq(sessionsTable.id, sessionId),
+        or(
+          eq(sessionsTable.teacherId, authReq.teacher.id),
+          authReq.teacher.wiseTeacherId
+            ? eq(sessionsTable.wiseTeacherId, authReq.teacher.wiseTeacherId)
+            : undefined,
+        )!,
+      ),
+    );
   if (!session) {
     res.status(404).json({ error: "Session not found" });
     return;
@@ -34,7 +45,14 @@ router.post("/sessions/:sessionId/transcript", requireAuth, async (req, res): Pr
 
   const [row] = await db
     .insert(transcriptsTable)
-    .values({ sessionId, speaker: parsed.data.speaker, text: parsed.data.text })
+    .values({
+      sessionId,
+      // Mirror onto the Wise key so we can find utterances by Wise session id
+      // even after the Supabase int session is gone or remapped.
+      wiseSessionId: session.wiseSessionId ?? null,
+      speaker: parsed.data.speaker,
+      text: parsed.data.text,
+    })
     .returning();
   res.status(201).json({
     id: row.id,

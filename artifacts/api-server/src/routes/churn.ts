@@ -10,6 +10,7 @@ import {
 import { eq, desc, and, gte } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../lib/auth";
 import { predictChurn } from "../lib/azure-openai";
+import { getStudentById as getMongoStudent } from "@workspace/mongo";
 
 const router: IRouter = Router();
 
@@ -63,7 +64,49 @@ async function computeAndStoreChurn(studentId: string | number) {
 }
 
 router.get("/students/:studentId/churn", requireAuth, async (req, res): Promise<void> => {
-  const studentId = parseInt(String(req.params.studentId), 10);
+  const rawId = String(req.params.studentId);
+  const isWiseId = /^[a-fA-F0-9]{24}$/.test(rawId);
+
+  // ── Wise student path — read latest cached churn keyed by wise_student_id ──
+  if (isWiseId) {
+    const ws = await getMongoStudent(rawId);
+    if (!ws) {
+      res.status(404).json({ error: "Student not found" });
+      return;
+    }
+    const [latest] = await db
+      .select()
+      .from(churnPredictionsTable)
+      .where(eq(churnPredictionsTable.wiseStudentId, ws.wise_student_id))
+      .orderBy(desc(churnPredictionsTable.computedAt));
+
+    if (!latest) {
+      // No prediction yet — return a low-risk placeholder rather than 404 so
+      // the Parent Dashboard can render without a missing-data error.
+      res.json({
+        id: 0,
+        studentId: ws.wise_student_id,
+        riskScore: 0,
+        reasons: ["No completed sessions yet"],
+        signals: [],
+        computedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    res.json({
+      id: latest.id,
+      studentId: latest.wiseStudentId ?? latest.studentId,
+      riskScore: latest.riskScore,
+      reasons: latest.reasons,
+      signals: latest.signals,
+      computedAt: latest.computedAt.toISOString(),
+    });
+    return;
+  }
+
+  // ── Legacy Supabase student path ──
+  const studentId = parseInt(rawId, 10);
   if (!Number.isFinite(studentId)) {
     res.status(400).json({ error: "Invalid student ID" });
     return;
@@ -76,7 +119,6 @@ router.get("/students/:studentId/churn", requireAuth, async (req, res): Promise<
     .orderBy(desc(churnPredictionsTable.computedAt));
 
   let row = latest;
-  // Refresh if older than 6 hours
   if (!row || Date.now() - row.computedAt.getTime() > 6 * 60 * 60 * 1000) {
     const fresh = await computeAndStoreChurn(studentId);
     if (fresh) row = fresh;
