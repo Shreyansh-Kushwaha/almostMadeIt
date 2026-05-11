@@ -8,9 +8,16 @@ import { sheldonSchema } from "./_schema";
 
 export const reportsTable = sheldonSchema.table("reports", {
   id: serial("id").primaryKey(),
-  sessionId: integer("session_id").notNull().references(() => sessionsTable.id),
-  classId: integer("class_id").notNull().references(() => classesTable.id),
-  teacherId: integer("teacher_id").notNull().references(() => teachersTable.id),
+  // Existing int FKs — nullable so reports keyed by Wise IDs can coexist
+  // with legacy Supabase-keyed reports.
+  sessionId: integer("session_id").references(() => sessionsTable.id),
+  classId: integer("class_id").references(() => classesTable.id),
+  teacherId: integer("teacher_id").references(() => teachersTable.id),
+  // Wise keys — populated for ClassPulse reports generated from Wise sessions.
+  wiseSessionId: text("wise_session_id"),
+  wiseTeacherId: text("wise_teacher_id"),
+  wiseClassId: text("wise_class_id"),
+  wiseStudentId: text("wise_student_id"),
   overallScore: real("overall_score").notNull(),
   engagementScore: real("engagement_score").notNull(),
   voiceClarityScore: real("voice_clarity_score").notNull(),

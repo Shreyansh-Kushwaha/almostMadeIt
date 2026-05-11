@@ -7,7 +7,8 @@ import { sheldonSchema } from "./_schema";
 
 export const parentReportsTable = sheldonSchema.table("parent_reports", {
   id: serial("id").primaryKey(),
-  studentId: integer("student_id").notNull().references(() => studentsTable.id),
+  studentId: integer("student_id").references(() => studentsTable.id),
+  wiseStudentId: text("wise_student_id"),
   parentId: integer("parent_id").references(() => parentsTable.id),
   periodStart: timestamp("period_start").notNull(),
   periodEnd: timestamp("period_end").notNull(),

@@ -9,9 +9,11 @@ export const interventionsTable = sheldonSchema.table("interventions", {
   id: serial("id").primaryKey(),
   sessionId: integer("session_id").references(() => sessionsTable.id),
   studentId: integer("student_id").references(() => studentsTable.id),
-  kind: text("kind").notNull(), // confusion | silent | low_engagement | churn_risk | rescue
+  wiseSessionId: text("wise_session_id"),
+  wiseStudentId: text("wise_student_id"),
+  kind: text("kind").notNull(),
   suggestion: text("suggestion").notNull(),
-  status: text("status").notNull().default("suggested"), // suggested | applied | dismissed
+  status: text("status").notNull().default("suggested"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

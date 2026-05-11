@@ -7,8 +7,11 @@ import { sheldonSchema } from "./_schema";
 
 export const quizEventsTable = sheldonSchema.table("quiz_events", {
   id: serial("id").primaryKey(),
-  sessionId: integer("session_id").notNull().references(() => sessionsTable.id),
+  // Existing int FKs nullable; Wise text columns parallel them.
+  sessionId: integer("session_id").references(() => sessionsTable.id),
   studentId: integer("student_id").references(() => studentsTable.id),
+  wiseSessionId: text("wise_session_id"),
+  wiseStudentId: text("wise_student_id"),
   question: text("question").notNull(),
   answer: text("answer").notNull(),
   correct: boolean("correct").notNull().default(false),

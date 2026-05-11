@@ -6,8 +6,10 @@ import { sheldonSchema } from "./_schema";
 
 export const transcriptsTable = sheldonSchema.table("transcripts", {
   id: serial("id").primaryKey(),
-  sessionId: integer("session_id").notNull().references(() => sessionsTable.id),
-  speaker: text("speaker").notNull().default("teacher"), // teacher | student | system
+  // Either sessionId (legacy Supabase) OR wiseSessionId (Wise session) — both nullable.
+  sessionId: integer("session_id").references(() => sessionsTable.id),
+  wiseSessionId: text("wise_session_id"),
+  speaker: text("speaker").notNull().default("teacher"),
   text: text("text").notNull(),
   capturedAt: timestamp("captured_at").defaultNow().notNull(),
 });
