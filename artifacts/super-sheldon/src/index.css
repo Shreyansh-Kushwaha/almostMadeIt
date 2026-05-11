@@ -155,43 +155,47 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 0 0% 3%;
-  --foreground: 0 0% 98%;
-  --border: 0 0% 12%;
-  
-  --card: 0 0% 6%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 0 0% 12%;
-  
-  --sidebar: 0 0% 5%;
-  --sidebar-foreground: 0 0% 98%;
-  --sidebar-border: 0 0% 12%;
-  --sidebar-primary: 29 100% 50%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 0 0% 12%;
-  --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-ring: 29 100% 50%;
-  
-  --popover: 0 0% 6%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 12%;
+  /* Dark navy palette (replaces previous near-black grayscale) */
+  --background: 220 38% 7%;
+  --foreground: 210 30% 96%;
+  --border: 220 28% 16%;
+
+  --card: 220 32% 11%;
+  --card-foreground: 210 30% 96%;
+  --card-border: 220 28% 16%;
+
+  /* Sidebar — warm burnt-amber (rich orange, not glaring). The bg uses
+     a top-to-bottom gradient defined in Shell.tsx; these vars handle the
+     foreground / border / accent tones. */
+  --sidebar: 22 70% 34%;
+  --sidebar-foreground: 30 30% 96%;
+  --sidebar-border: 22 60% 22%;
+  --sidebar-primary: 30 100% 96%;
+  --sidebar-primary-foreground: 22 70% 28%;
+  --sidebar-accent: 22 60% 28%;
+  --sidebar-accent-foreground: 30 30% 96%;
+  --sidebar-ring: 30 100% 80%;
+
+  --popover: 220 32% 11%;
+  --popover-foreground: 210 30% 96%;
+  --popover-border: 220 28% 16%;
   
   --primary: 29 100% 50%; /* #ff7a00 */
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 0 0% 12%;
-  --secondary-foreground: 0 0% 98%;
-  
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 60%;
-  
+  --secondary: 220 28% 16%;
+  --secondary-foreground: 210 30% 96%;
+
+  --muted: 220 28% 16%;
+  --muted-foreground: 215 18% 65%;
+
   --accent: 29 100% 15%;
-  --accent-foreground: 29 100% 60%;
-  
+  --accent-foreground: 29 100% 65%;
+
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  
-  --input: 0 0% 15%;
+
+  --input: 220 28% 18%;
   --ring: 29 100% 50%;
   
   --chart-1: 29 100% 50%;
@@ -232,5 +236,82 @@
 }
 
 .glass-card {
-  @apply bg-card/80 backdrop-blur-xl border border-white/5 dark:border-white/10 shadow-lg;
+  @apply bg-card/70 backdrop-blur-xl border border-white/5 dark:border-white/8 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4)] transition-all duration-200;
+  /* subtle inner highlight on top edge */
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 30%),
+    linear-gradient(180deg, hsl(var(--card) / 0.7), hsl(var(--card) / 0.7));
+}
+.glass-card:hover {
+  border-color: rgba(255, 122, 0, 0.22);
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 122, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Subtle utility — small label/eyebrow above section titles */
+.eyebrow {
+  @apply text-[10px] uppercase tracking-[0.18em] text-primary/80 font-semibold;
+}
+
+/* Section divider — gradient hairline */
+.divider-gradient {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+}
+
+/* Animated chart shimmer for loading placeholders */
+@keyframes shimmer-sweep {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, hsl(var(--muted) / 0.6) 0%, hsl(var(--card) / 0.9) 50%, hsl(var(--muted) / 0.6) 100%);
+  background-size: 200% 100%;
+  animation: shimmer-sweep 1.6s linear infinite;
+}
+
+/* ───── Text selection ───── */
+::selection {
+  background: hsl(var(--primary) / 0.85);
+  color: hsl(var(--primary-foreground));
+  text-shadow: none;
+}
+::-moz-selection {
+  background: hsl(var(--primary) / 0.85);
+  color: hsl(var(--primary-foreground));
+  text-shadow: none;
+}
+
+/* ───── Custom scrollbar (broader, brand-tinted) ───── */
+/* Firefox */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: hsl(var(--primary) / 0.55) transparent;
+}
+
+/* WebKit / Blink */
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.45);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+  transition: background-color 0.15s ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.75);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--primary));
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
