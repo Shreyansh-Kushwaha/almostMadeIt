@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, classesTable, reportsTable, teachersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, classesTable, reportsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -48,22 +48,6 @@ router.get("/dashboard/weekly-performance", requireAuth, async (req, res): Promi
   }));
 
   res.json(weekly);
-});
-
-router.get("/dashboard/rankings", requireAuth, async (req, res): Promise<void> => {
-  const authReq = req as AuthRequest;
-
-  const fakeRankings = [
-    { rank: 1, name: "Dr. Sarah Chen", subject: "Advanced Mathematics", score: 96.8, isCurrentTeacher: false },
-    { rank: 2, name: "Prof. James Wilson", subject: "Physics", score: 94.2, isCurrentTeacher: false },
-    { rank: 3, name: authReq.teacher.name, subject: authReq.teacher.subject, score: Math.round(authReq.teacher.avgScore * 10) / 10 || 91.5, isCurrentTeacher: true },
-    { rank: 4, name: "Ms. Priya Sharma", subject: "Biology", score: 89.3, isCurrentTeacher: false },
-    { rank: 5, name: "Mr. Carlos Rodriguez", subject: "History", score: 87.6, isCurrentTeacher: false },
-    { rank: 6, name: "Dr. Emily Park", subject: "Chemistry", score: 85.9, isCurrentTeacher: false },
-    { rank: 7, name: "Mr. Daniel Foster", subject: "English Literature", score: 83.4, isCurrentTeacher: false },
-  ];
-
-  res.json(fakeRankings);
 });
 
 export default router;

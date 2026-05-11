@@ -1,19 +1,53 @@
 import { Router, type IRouter } from "express";
 import { db, classesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ilike, asc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../lib/auth";
 import { GetClassParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
+const ALLOWED_STATUSES = new Set(["upcoming", "completed", "cancelled", "active"]);
+
 router.get("/classes", requireAuth, async (req, res): Promise<void> => {
   const authReq = req as AuthRequest;
-  const classes = await db
+
+  const rawLimit = parseInt(String(req.query.limit ?? "12"), 10);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(Math.max(rawLimit, 1), 100)
+    : 12;
+  const rawPage = parseInt(String(req.query.page ?? "1"), 10);
+  const page = Number.isFinite(rawPage) ? Math.max(rawPage, 1) : 1;
+  const status =
+    typeof req.query.status === "string" && ALLOWED_STATUSES.has(req.query.status)
+      ? req.query.status
+      : undefined;
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+
+  const conditions = [eq(classesTable.teacherId, authReq.teacher.id)];
+  if (status) conditions.push(eq(classesTable.status, status));
+  if (q) conditions.push(ilike(classesTable.studentName, `%${q}%`));
+  const where = and(...conditions);
+
+  const [{ value: total }] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(classesTable)
+    .where(where);
+
+  const rows = await db
     .select()
     .from(classesTable)
-    .where(eq(classesTable.teacherId, authReq.teacher.id))
-    .orderBy(classesTable.scheduledAt);
-  res.json(classes.map(formatClass));
+    .where(where)
+    .orderBy(asc(classesTable.scheduledAt))
+    .limit(limit)
+    .offset((page - 1) * limit);
+
+  res.json({
+    items: rows.map(formatClass),
+    total,
+    page,
+    limit,
+    hasMore: page * limit < total,
+  });
 });
 
 router.get("/classes/:classId", requireAuth, async (req, res): Promise<void> => {

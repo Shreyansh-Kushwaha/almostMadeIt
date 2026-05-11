@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, sessionsTable, classesTable, reportsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, sessionsTable, classesTable, reportsTable, transcriptsTable } from "@workspace/db";
+import { eq, and, asc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../lib/auth";
 import { StartSessionBody, FinishSessionParams } from "@workspace/api-zod";
-import { generateAiReport } from "../lib/gemini";
+import { generateClassReport } from "../lib/azure-openai";
 
 const router: IRouter = Router();
 
@@ -108,8 +108,22 @@ router.post("/sessions/:sessionId/finish", requireAuth, async (req, res): Promis
   // Get class info for AI report
   const [cls] = await db.select().from(classesTable).where(eq(classesTable.id, session.classId));
 
-  // Generate AI report
-  const reportData = await generateAiReport(cls?.studentName ?? "Student", cls?.subject ?? "Class", authReq.teacher.name);
+  // Pull captured transcript (if any) to feed the AI
+  const utterances = await db
+    .select()
+    .from(transcriptsTable)
+    .where(eq(transcriptsTable.sessionId, session.id))
+    .orderBy(asc(transcriptsTable.capturedAt));
+  const transcript = utterances.map((u) => `${u.speaker}: ${u.text}`).join("\n");
+
+  // Generate AI report (Azure OpenAI GPT-5.1)
+  const reportData = await generateClassReport({
+    studentName: cls?.studentName ?? "Student",
+    subject: cls?.subject ?? "Class",
+    teacherName: authReq.teacher.name,
+    transcript,
+    durationMinutes: cls?.durationMinutes,
+  });
 
   const [report] = await db
     .insert(reportsTable)
@@ -134,11 +148,17 @@ router.post("/sessions/:sessionId/finish", requireAuth, async (req, res): Promis
     speakingConfidence: report.speakingConfidence,
     deadAirSeconds: report.deadAirSeconds,
     internetStability: report.internetStability,
+    understandingScore: report.understandingScore,
+    satisfactionScore: report.satisfactionScore,
+    teacherCompatibilityScore: report.teacherCompatibilityScore,
+    churnRiskScore: report.churnRiskScore,
     aiSummary: report.aiSummary,
     suggestions: report.suggestions,
     highlights: report.highlights,
     improvementAreas: report.improvementAreas,
     timelineData: report.timelineData,
+    moodTimeline: report.moodTimeline,
+    confusionTimeline: report.confusionTimeline,
     createdAt: report.createdAt.toISOString(),
     class: cls ? {
       id: cls.id,
