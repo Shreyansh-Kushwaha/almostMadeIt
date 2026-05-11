@@ -1,20 +1,17 @@
 services:
   - type: web
     name: super-sheldon-api
-    runtime: node
+    # Docker runtime instead of native Node. The Dockerfile at the repo root
+    # builds on top of mcr.microsoft.com/playwright:v1.49.1-noble, which has
+    # Chromium + every OS lib it needs already installed. That's the only
+    # reliable way to ship Playwright on Render — the native Node runtime
+    # doesn't preserve ~/.cache/ms-playwright between build and runtime, and
+    # apt-get install during build doesn't have the privileges --with-deps
+    # expects.
+    runtime: image
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     plan: free
-    rootDir: .
-    # Plain `playwright install chromium` — no --with-deps, no path override.
-    # This is what ptm-agent uses on Render and it works:
-    #   - Render's runtime image already has the OS libs Chromium needs
-    #     (libatk, libnss, etc.), so --with-deps is unnecessary and was
-    #     failing silently because it tries to apt-get without proper
-    #     privileges, which then prevented the actual browser download.
-    #   - Render preserves ~/.cache between build and runtime, so the
-    #     default install location is fine — no PLAYWRIGHT_BROWSERS_PATH
-    #     dance required.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server exec playwright install chromium && pnpm --filter @workspace/api-server run build
-    startCommand: pnpm --filter @workspace/api-server run start
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
