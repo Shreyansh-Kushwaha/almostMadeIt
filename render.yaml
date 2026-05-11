@@ -18,6 +18,11 @@ services:
         sync: false
       - key: SEED_DEMO
         value: "true"
+      # Render wipes ~/.cache between build and runtime, so install Playwright
+      # browsers into the project dir (which IS persisted into the runtime
+      # image). This var is inherited by both the build and start commands.
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "/opt/render/project/src/.ms-playwright"
       # Wise/Mongo — teacher + student rosters and Wise-keyed session lookups
       - key: MONGO_CONNECTION_STRING
         sync: false
