@@ -245,7 +245,8 @@
 .glass-card:hover {
   border-color: rgba(255, 122, 0, 0.22);
   box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 122, 0, 0.08);
-  transform: translateY(-1px);
+  /* No transform — translateY caused hover-jitter loops where the card moved
+     out from under the cursor, flipping hover state on/off rapidly. */
 }
 
 /* Subtle utility — small label/eyebrow above section titles */
