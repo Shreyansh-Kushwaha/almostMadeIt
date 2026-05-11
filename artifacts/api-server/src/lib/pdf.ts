@@ -17,8 +17,23 @@ import { uploadReportPdf } from "./storage";
 const PDFSHIFT_URL = "https://api.pdfshift.io/v3/convert/pdf";
 const PDF_TIMEOUT_MS = Number(process.env.PDF_TIMEOUT_MS ?? 60_000);
 
+function normalizeFrontendUrl(raw: string | undefined): string {
+  // Strip whitespace, surrounding quotes (pasting from a dashboard sometimes
+  // brings them along), trailing slashes.
+  let v = (raw ?? "").trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1).trim();
+  }
+  v = v.replace(/\/+$/, "");
+  if (!v) return v;
+  // Auto-prefix protocol — a value like `super-sheldon-web.onrender.com`
+  // would otherwise blow up new URL() with "Invalid URL".
+  if (!/^https?:\/\//i.test(v)) v = `https://${v}`;
+  return v;
+}
+
 function buildSourceUrl(reportId: number | string, authToken?: string): string {
-  const frontendUrl = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
+  const frontendUrl = normalizeFrontendUrl(process.env.FRONTEND_URL);
   if (!frontendUrl) {
     throw new Error(
       "FRONTEND_URL must be set so PDFShift knows which URL to render. Local " +
@@ -26,7 +41,15 @@ function buildSourceUrl(reportId: number | string, authToken?: string): string {
         "reach localhost.",
     );
   }
-  const url = new URL(`${frontendUrl}/reports/${reportId}/print`);
+  let url: URL;
+  try {
+    url = new URL(`${frontendUrl}/reports/${reportId}/print`);
+  } catch {
+    throw new Error(
+      `FRONTEND_URL is not a valid URL: "${process.env.FRONTEND_URL}". Expected ` +
+        `something like https://super-sheldon-web.onrender.com (with the https:// prefix).`,
+    );
+  }
   if (authToken) url.searchParams.set("token", authToken);
   return url.toString();
 }
@@ -41,7 +64,8 @@ export async function renderReportPdfBytes(
       "PDFSHIFT_API_KEY is not set. Add it to the api-server .env or Render env.",
     );
   }
-  if (/^http:\/\/(localhost|127\.0\.0\.1)/i.test(process.env.FRONTEND_URL ?? "")) {
+  const normalized = normalizeFrontendUrl(process.env.FRONTEND_URL);
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(normalized)) {
     throw new Error(
       "FRONTEND_URL points at localhost — PDFShift can't reach it. Deploy to " +
         "Render (or expose via ngrok) before rendering PDFs.",
