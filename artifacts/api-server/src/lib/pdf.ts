@@ -1,115 +1,119 @@
-// Renders the frontend's /reports/:id/print route to a single-page PDF via
-// Playwright, then uploads to Supabase Storage and returns the public URL.
+// Renders the frontend's /reports/:id/print route to a PDF via PDFShift
+// (hosted Chromium-as-a-service) and uploads the bytes to Supabase Storage.
 //
-// Requires:
-//   - playwright (npm) + `npx playwright install chromium` once at deploy time
-//   - FRONTEND_URL pointing at a running frontend (default http://localhost:24724)
-//   - Supabase env vars from ./storage
+// Why not run a headless browser ourselves? On Render's native Node runtime,
+// Playwright was unreliable — ~/.cache wasn't preserved between build and
+// runtime, and apt-get during build didn't have the privileges Chromium's
+// system libs require. A hosted service sidesteps all of that.
 //
-// Lazy-imports playwright so the API server boots even when the browser
-// binary hasn't been installed yet (e.g. local dev without PDF testing).
+// Required env:
+//   PDFSHIFT_API_KEY      — API key from https://pdfshift.io
+//   FRONTEND_URL          — public URL of the frontend (PDFShift's servers
+//                           must be able to reach this; localhost won't work)
 
 import { logger } from "./logger";
 import { uploadReportPdf } from "./storage";
 
-const PDF_TIMEOUT_MS = Number(process.env.PTM_PDF_TIMEOUT_MS ?? 30_000);
+const PDFSHIFT_URL = "https://api.pdfshift.io/v3/convert/pdf";
+const PDF_TIMEOUT_MS = Number(process.env.PDF_TIMEOUT_MS ?? 60_000);
+
+function buildSourceUrl(reportId: number | string, authToken?: string): string {
+  const frontendUrl = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
+  if (!frontendUrl) {
+    throw new Error(
+      "FRONTEND_URL must be set so PDFShift knows which URL to render. Local " +
+        "PDF rendering requires a public tunnel — PDFShift's servers can't " +
+        "reach localhost.",
+    );
+  }
+  const url = new URL(`${frontendUrl}/reports/${reportId}/print`);
+  if (authToken) url.searchParams.set("token", authToken);
+  return url.toString();
+}
 
 export async function renderReportPdfBytes(
   reportId: number | string,
   opts: { authToken?: string } = {},
 ): Promise<Uint8Array> {
-  const playwright = await import("playwright");
-  const frontendUrl = (process.env.FRONTEND_URL ?? "http://localhost:24724").replace(/\/$/, "");
-  const url = `${frontendUrl}/reports/${reportId}/print`;
-
-  const browser = await playwright.chromium.launch();
-  try {
-    // Viewport tall enough that even a long report fits without triggering
-    // min-h-screen tricks that would crop measurements.
-    const context = await browser.newContext({ viewport: { width: 900, height: 8000 } });
-
-    // The print page calls /api/reports/:id, which requires auth. Playwright
-    // has empty localStorage, so without injecting a token the React Query
-    // call 401s and the page renders "Report not found." Setting the token
-    // via addInitScript runs BEFORE any frame scripts on every document,
-    // so the API client picks it up.
-    if (opts.authToken) {
-      const safeToken = opts.authToken.replace(/[\\'"]/g, "");
-      await context.addInitScript(
-        `try { window.localStorage.setItem("sheldon_token", "${safeToken}"); } catch (e) {}`,
-      );
-    }
-
-    const page = await context.newPage();
-
-    // Use screen media so the on-screen layout renders as-is — yields one
-    // long continuous PDF page matching what the teacher sees in the app.
-    await page.emulateMedia({ media: "screen" });
-
-    const response = await page.goto(url, { waitUntil: "load", timeout: PDF_TIMEOUT_MS });
-    logger.info(
-      { url, status: response?.status() ?? null },
-      "Playwright navigated to print page",
+  const apiKey = (process.env.PDFSHIFT_API_KEY ?? "").trim();
+  if (!apiKey) {
+    throw new Error(
+      "PDFSHIFT_API_KEY is not set. Add it to the api-server .env or Render env.",
     );
-
-    // Wait for the print page to finish fetching its data. The print page
-    // sets data-ready="true" on .page-wrap only after useGetReport resolves;
-    // without this the PDF captures the "Loading report…" placeholder.
-    await page.waitForSelector('.page-wrap[data-ready="true"]', {
-      state: "attached",
-      timeout: PDF_TIMEOUT_MS,
-    });
-
-    // Hide any editor / toolbar chrome AND zero out body/page-wrap margins so
-    // the PDF has no dead space.
-    await page.addStyleTag({
-      content: `
-        .no-print { display: none !important; }
-        html, body { margin: 0 !important; padding: 0 !important; background: white !important; }
-        .page-wrap { margin: 0 auto !important; box-shadow: none !important; }
-      `,
-    });
-    // Let fonts / images / layout settle after the data lands.
-    await page.waitForTimeout(400);
-
-    // Measure the actual rendered page-wrap so the PDF is sized exactly to
-    // its content — no pagination, no blank-tail page. The callback runs in
-    // the browser context, so we pass it as a string to keep the Node
-    // tsconfig from requiring the DOM lib.
-    const dims = (await page.evaluate(`
-      (() => {
-        document.documentElement.style.height = "auto";
-        document.body.style.height = "auto";
-        document.body.style.minHeight = "0";
-        const wrap = document.querySelector(".page-wrap");
-        if (wrap) {
-          wrap.style.height = "auto";
-          wrap.style.minHeight = "0";
-        }
-        const el = wrap || document.body;
-        const rect = el.getBoundingClientRect();
-        return {
-          width: Math.ceil(rect.width || el.scrollWidth),
-          height: Math.ceil(el.scrollHeight),
-        };
-      })()
-    `)) as { width: number; height: number };
-
-    const widthPx = Math.max(dims.width, 600);
-    const heightPx = Math.max(dims.height, 600);
-    logger.info({ widthPx, heightPx }, "Rendering single-page PDF");
-
-    const pdfBuffer = await page.pdf({
-      width: `${widthPx}px`,
-      height: `${heightPx}px`,
-      printBackground: true,
-      margin: { top: "0", bottom: "0", left: "0", right: "0" },
-    });
-    logger.info({ bytes: pdfBuffer.length }, "Playwright produced PDF");
-    return new Uint8Array(pdfBuffer);
-  } finally {
-    await browser.close();
   }
+  if (/^http:\/\/(localhost|127\.0\.0\.1)/i.test(process.env.FRONTEND_URL ?? "")) {
+    throw new Error(
+      "FRONTEND_URL points at localhost — PDFShift can't reach it. Deploy to " +
+        "Render (or expose via ngrok) before rendering PDFs.",
+    );
+  }
+
+  const sourceUrl = buildSourceUrl(reportId, opts.authToken);
+  logger.info({ reportId, sourceUrl: sourceUrl.replace(/token=[^&]+/, "token=***") }, "PDFShift render starting");
+
+  const body = {
+    source: sourceUrl,
+    // Wait for the print page's data-ready handshake — same selector the
+    // page itself sets after useGetReport resolves. Without this we'd
+    // capture the "Loading report…" placeholder.
+    wait_for: '.page-wrap[data-ready="true"]',
+    // Render with screen media (matches how the page was designed). The
+    // page already caps itself at 21cm width which matches A4.
+    use_print: false,
+    // Match the SVG/img-heavy print layout: don't strip colors.
+    sandbox: false,
+    // Generous overall timeout — PDFShift charges per render anyway,
+    // 30-60s for a complex page is normal.
+    timeout: 60,
+  };
+
+  // PDFShift uses HTTP Basic auth with username "api" and password = key.
+  const authHeader = "Basic " + Buffer.from(`api:${apiKey}`).toString("base64");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PDF_TIMEOUT_MS);
+  let resp: Response;
+  try {
+    resp = await fetch(PDFSHIFT_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: authHeader,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const err = e as Error;
+    throw new Error(
+      err.name === "AbortError"
+        ? `PDFShift request timed out after ${PDF_TIMEOUT_MS}ms`
+        : `PDFShift network error: ${err.message}`,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!resp.ok) {
+    // PDFShift returns JSON for errors, e.g. invalid URL / quota exceeded /
+    // unreachable source. Surface the message so the caller (and the
+    // delivery_logs row) has something actionable.
+    const detail = await resp.text().catch(() => "");
+    throw new Error(
+      `PDFShift returned HTTP ${resp.status}: ${detail.slice(0, 400) || resp.statusText}`,
+    );
+  }
+
+  const buf = await resp.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  if (bytes.byteLength < 200) {
+    // Sanity check — a real PDF is at least a few KB. If we got something
+    // tiny here it's almost certainly an error response we mis-detected.
+    const preview = Buffer.from(bytes).toString("utf8");
+    throw new Error(`PDFShift returned unexpectedly small payload: ${preview}`);
+  }
+  logger.info({ reportId, bytes: bytes.byteLength }, "PDFShift produced PDF");
+  return bytes;
 }
 
 export async function generateAndStoreReportPdf(

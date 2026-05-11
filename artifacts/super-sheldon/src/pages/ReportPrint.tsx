@@ -153,7 +153,37 @@ function MoodTimelineSvg({ data }: { data: Array<{ minute: number; mood?: number
   );
 }
 
+// Pulls ?token=<jwt> out of the URL and stashes it in localStorage so the
+// API client's customFetch picks it up. Runs synchronously inside a useState
+// initializer so it lands BEFORE any other hook in this component fires —
+// in particular before useGetReport, which would otherwise 401.
+//
+// The token is stripped from the URL bar after extraction so it doesn't
+// leak into shareable links or browser history.
+function consumeTokenFromUrl(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    const tokenFromUrl = url.searchParams.get("token");
+    if (!tokenFromUrl) return;
+    window.localStorage.setItem("sheldon_token", tokenFromUrl);
+    url.searchParams.delete("token");
+    window.history.replaceState({}, "", url.toString());
+  } catch {
+    // Same-origin URL parsing should never throw, but if it does we just
+    // skip the token handoff and the page will render "Report not found".
+  }
+}
+
 export default function ReportPrint() {
+  // Initializer runs once, synchronously, before any other hook in this
+  // component — guaranteeing the token is in localStorage by the time
+  // useGetReport fires below.
+  useState(() => {
+    consumeTokenFromUrl();
+    return true;
+  });
+
   const { reportId } = useParams();
   const id = Number(reportId);
   const { data: report, isLoading, isError } = useGetReport(id, {
