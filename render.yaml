@@ -4,12 +4,17 @@ services:
     runtime: node
     plan: free
     rootDir: .
-    # PLAYWRIGHT_BROWSERS_PATH is prefixed inline (not just as an envVar)
-    # because Render doesn't automatically apply new render.yaml envVars to
-    # existing services — you'd have to sync the blueprint manually. Inline
-    # ensures the path is set every build and every start regardless.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/src/.ms-playwright pnpm --filter @workspace/api-server exec playwright install --with-deps chromium && pnpm --filter @workspace/api-server run build
-    startCommand: PLAYWRIGHT_BROWSERS_PATH=/opt/render/project/src/.ms-playwright pnpm --filter @workspace/api-server run start
+    # Plain `playwright install chromium` — no --with-deps, no path override.
+    # This is what ptm-agent uses on Render and it works:
+    #   - Render's runtime image already has the OS libs Chromium needs
+    #     (libatk, libnss, etc.), so --with-deps is unnecessary and was
+    #     failing silently because it tries to apt-get without proper
+    #     privileges, which then prevented the actual browser download.
+    #   - Render preserves ~/.cache between build and runtime, so the
+    #     default install location is fine — no PLAYWRIGHT_BROWSERS_PATH
+    #     dance required.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server exec playwright install chromium && pnpm --filter @workspace/api-server run build
+    startCommand: pnpm --filter @workspace/api-server run start
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
@@ -22,11 +27,6 @@ services:
         sync: false
       - key: SEED_DEMO
         value: "true"
-      # Render wipes ~/.cache between build and runtime, so install Playwright
-      # browsers into the project dir (which IS persisted into the runtime
-      # image). This var is inherited by both the build and start commands.
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: "/opt/render/project/src/.ms-playwright"
       # Wise/Mongo — teacher + student rosters and Wise-keyed session lookups
       - key: MONGO_CONNECTION_STRING
         sync: false

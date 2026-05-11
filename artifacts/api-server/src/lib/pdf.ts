@@ -18,13 +18,6 @@ export async function renderReportPdfBytes(
   reportId: number | string,
   opts: { authToken?: string } = {},
 ): Promise<Uint8Array> {
-  // Render wipes ~/.cache between build and runtime. If the blueprint env
-  // var didn't make it onto the service (Render doesn't auto-sync new
-  // envVars), fall back to the project-dir location that the build command
-  // also targets so Playwright finds the binary it just downloaded.
-  if (!process.env.PLAYWRIGHT_BROWSERS_PATH && process.env.RENDER) {
-    process.env.PLAYWRIGHT_BROWSERS_PATH = "/opt/render/project/src/.ms-playwright";
-  }
   const playwright = await import("playwright");
   const frontendUrl = (process.env.FRONTEND_URL ?? "http://localhost:24724").replace(/\/$/, "");
   const url = `${frontendUrl}/reports/${reportId}/print`;
