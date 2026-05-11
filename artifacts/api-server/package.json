@@ -4,13 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "dev": "pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
+    "start": "node --env-file=.env --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.0.1",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "bcryptjs": "^3.0.3",
@@ -18,7 +17,9 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "openai": "^4.77.0",
     "pino": "^9",
+    "zod": "catalog:",
     "pino-http": "^10"
   },
   "devDependencies": {
