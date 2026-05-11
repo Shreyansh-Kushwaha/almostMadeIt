@@ -46,6 +46,13 @@ export default function Settings() {
 
   const dirty = name !== user.name || subject !== user.subject;
 
+  // Defer opening to next tick — without this, the click event that opens the
+  // dialog keeps bubbling to document, and Radix's outside-click handler treats
+  // it as a "click outside the dialog" and closes it ~half a second later.
+  const openPicker = () => {
+    setTimeout(() => setPickerOpen(true), 0);
+  };
+
   const handleSave = () => {
     updateMutation.mutate(
       { data: { name, subject } },
@@ -82,7 +89,7 @@ export default function Settings() {
           <div className="flex items-center gap-6">
             <button
               type="button"
-              onClick={() => setPickerOpen(true)}
+              onClick={openPicker}
               data-testid="button-open-avatar-picker"
               className="relative group rounded-full"
             >
@@ -95,7 +102,7 @@ export default function Settings() {
               </span>
             </button>
             <div>
-              <Button variant="outline" onClick={() => setPickerOpen(true)}>
+              <Button variant="outline" onClick={openPicker}>
                 Choose from gallery
               </Button>
               <p className="text-[11px] text-muted-foreground mt-1.5">30 graphic avatars to pick from</p>
