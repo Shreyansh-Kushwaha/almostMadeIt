@@ -6,7 +6,10 @@
 
 import { isDemoMode, getDemoResponse } from "./demoData";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+// Prefer VITE_API_URL (deployed cross-origin backend) over BASE_URL (dev/proxy).
+const BASE = (
+  (import.meta.env.VITE_API_URL as string | undefined) ?? import.meta.env.BASE_URL
+).replace(/\/+$/, "");
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem("sheldon_token");

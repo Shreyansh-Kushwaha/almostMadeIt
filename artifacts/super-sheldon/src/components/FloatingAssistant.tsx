@@ -13,7 +13,10 @@ interface Message {
 
 async function callAiChat(message: string, transcript: string, subject: string): Promise<string> {
   const token = localStorage.getItem("sheldon_token") ?? "";
-  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  // Prefer VITE_API_URL (cross-origin backend) over BASE_URL for the API call.
+  const base = (
+    (import.meta.env.VITE_API_URL as string | undefined) ?? import.meta.env.BASE_URL
+  ).replace(/\/+$/, "");
   try {
     const res = await fetch(`${base}/api/ai/chat`, {
       method: "POST",
