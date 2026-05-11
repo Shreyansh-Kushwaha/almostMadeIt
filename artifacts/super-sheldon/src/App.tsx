@@ -47,15 +47,36 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 }
 
 function MainLayout() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: user, isLoading, isError } = useGetMe();
 
   useEffect(() => {
     if (isError) {
       localStorage.removeItem("sheldon_token");
+      localStorage.removeItem("sheldon_demo_mode");
       setLocation("/login");
     }
   }, [isError, setLocation]);
+
+  // Role-based redirect: the moment we know who the user is, push them to the
+  // page that makes sense for their role if they're sitting on a default route.
+  const role = (user as unknown as { role?: string } | undefined)?.role ?? "teacher";
+  const userId = (user as unknown as { id?: number } | undefined)?.id;
+
+  useEffect(() => {
+    if (!user) return;
+    // Student is locked to their own parent dashboard. Anything else snaps back.
+    if (role === "student") {
+      const allowed = userId != null && location === `/students/${userId}`;
+      const isSettings = location === "/settings";
+      if (!allowed && !isSettings) setLocation(`/students/${userId}`);
+      return;
+    }
+    // Admin lands on /admin on first login.
+    if (role === "admin" && location === "/") {
+      setLocation("/admin");
+    }
+  }, [role, userId, location, user, setLocation]);
 
   if (isLoading) {
     return (

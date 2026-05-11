@@ -7,6 +7,29 @@
 
 export const DEMO_TOKEN = "demo-token";
 export const DEMO_TEACHER_ID = -1; // sentinel — never written to DB
+export const DEMO_ADMIN_PASSWORD = "supersheldon";
+
+// Role chosen during demo login. Persists in localStorage so refresh keeps it.
+type DemoRole = "teacher" | "admin" | "student";
+function readRole(): DemoRole {
+  try {
+    const r = localStorage.getItem("sheldon_demo_role");
+    return r === "admin" || r === "student" ? r : "teacher";
+  } catch { return "teacher"; }
+}
+function writeRole(r: DemoRole) { try { localStorage.setItem("sheldon_demo_role", r); } catch {} }
+function readDemoStudentId(): number | null {
+  try {
+    const v = localStorage.getItem("sheldon_demo_student_id");
+    return v ? parseInt(v, 10) : null;
+  } catch { return null; }
+}
+function writeDemoStudentId(id: number | null) {
+  try {
+    if (id == null) localStorage.removeItem("sheldon_demo_student_id");
+    else localStorage.setItem("sheldon_demo_student_id", String(id));
+  } catch {}
+}
 
 const DEMO_TEACHER: {
   id: number;
@@ -337,10 +360,71 @@ export function getDemoResponse(method: string, fullUrl: string, body?: unknown)
     return [{ id: DEMO_TEACHER_ID, name: "Demo", subject: "Mathematics & Science", avatarUrl: null, totalClasses: 42 }];
   }
   if (M === "POST" && eq("/api/auth/select-teacher")) {
-    return { token: DEMO_TOKEN, teacher: DEMO_TEACHER };
+    writeRole("teacher");
+    writeDemoStudentId(null);
+    return { token: DEMO_TOKEN, role: "teacher", teacher: DEMO_TEACHER };
   }
-  if (M === "POST" && eq("/api/auth/logout")) return { message: "Logged out successfully" };
-  if (M === "GET" && eq("/api/auth/me")) return DEMO_TEACHER;
+  if (M === "POST" && eq("/api/auth/admin-login")) {
+    const pw = (body as { password?: string } | undefined)?.password;
+    if (pw !== DEMO_ADMIN_PASSWORD) {
+      // Best-effort error shape — orval-generated client throws on non-2xx,
+      // but we can't easily synthesize a 401 here, so signal via shape.
+      // Returning null lets the request fall through; demo mode handles this
+      // by treating null as no-op, then the customFetch hits the real backend
+      // which also rejects. To keep demo offline, throw via a sentinel:
+      throw new Error("Invalid admin password");
+    }
+    writeRole("admin");
+    writeDemoStudentId(null);
+    return { token: DEMO_TOKEN, role: "admin", admin: { name: "Admin", email: "admin@classpulse.ai" } };
+  }
+  if (M === "GET" && eq("/api/students/public-list")) {
+    return DEMO_STUDENTS.map(({ churn: _churn, ...s }) => s);
+  }
+  if (M === "POST" && eq("/api/auth/select-student")) {
+    const sid = (body as { studentId?: number } | undefined)?.studentId;
+    const s = DEMO_STUDENTS.find((x) => x.id === sid);
+    if (!s) throw new Error("Student not found");
+    writeRole("student");
+    writeDemoStudentId(s.id);
+    const { churn: _churn, ...student } = s;
+    return { token: DEMO_TOKEN, role: "student", student };
+  }
+  if (M === "POST" && eq("/api/auth/logout")) {
+    writeRole("teacher");
+    writeDemoStudentId(null);
+    return { message: "Logged out successfully" };
+  }
+  if (M === "GET" && eq("/api/auth/me")) {
+    const role = readRole();
+    if (role === "student") {
+      const sid = readDemoStudentId();
+      const s = DEMO_STUDENTS.find((x) => x.id === sid) ?? DEMO_STUDENTS[0];
+      return {
+        role: "student",
+        id: s.id,
+        name: s.name,
+        email: s.email ?? "",
+        subject: s.subject ?? "",
+        grade: s.grade ?? null,
+        avatarUrl: s.avatarUrl,
+        primaryTeacherId: s.primaryTeacherId,
+        totalClasses: 0,
+        avgScore: 0,
+      };
+    }
+    if (role === "admin") {
+      return {
+        ...DEMO_TEACHER,
+        role: "admin",
+        id: 0,
+        name: "Admin",
+        email: "admin@classpulse.ai",
+        subject: "Internal Team",
+      };
+    }
+    return { ...DEMO_TEACHER, role: "teacher" };
+  }
   if (M === "PATCH" && eq("/api/auth/me")) {
     const b = (body as { name?: string; subject?: string; avatarUrl?: string | null } | undefined) ?? {};
     if (b.name !== undefined) DEMO_TEACHER.name = b.name;

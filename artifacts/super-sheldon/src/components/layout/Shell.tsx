@@ -18,7 +18,8 @@ import {
   Loader2,
   ExternalLink,
   GraduationCap,
-  Building2,
+  Heart,
+  ShieldCheck,
 } from "lucide-react";
 import ClassPulseLogo from "../ClassPulseLogo";
 import { Button } from "@/components/ui/button";
@@ -71,15 +72,34 @@ export default function Shell({ children }: { children: ReactNode }) {
     );
   };
 
-  const navItems = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/classes", label: "Classes", icon: Calendar },
-    { href: "/students", label: "Students", icon: GraduationCap },
-    { href: "/reports", label: "AI Reports", icon: FileText },
-    { href: "/performance", label: "Performance", icon: Activity },
-    { href: "/admin", label: "Admin", icon: Building2 },
-    { href: "/settings", label: "Settings", icon: Settings },
-  ];
+  // Role-aware nav. The token's role drives which entries are visible:
+  //   • student → only their own parent-dashboard + settings
+  //   • teacher → everything except /admin
+  //   • admin   → admin-only pages (no per-teacher dashboards)
+  const role = ((user as unknown as { role?: string })?.role) ?? "teacher";
+  const myStudentId = (user as unknown as { id?: number })?.id;
+
+  const navItems: { href: string; label: string; icon: typeof LayoutDashboard }[] =
+    role === "student"
+      ? [
+          { href: `/students/${myStudentId ?? ""}`, label: "My Dashboard", icon: Heart },
+          { href: "/settings", label: "Settings", icon: Settings },
+        ]
+      : role === "admin"
+      ? [
+          { href: "/admin", label: "Admin Overview", icon: ShieldCheck },
+          { href: "/students", label: "Students", icon: GraduationCap },
+          { href: "/reports", label: "AI Reports", icon: FileText },
+          { href: "/settings", label: "Settings", icon: Settings },
+        ]
+      : [
+          { href: "/", label: "Dashboard", icon: LayoutDashboard },
+          { href: "/classes", label: "Classes", icon: Calendar },
+          { href: "/students", label: "Students", icon: GraduationCap },
+          { href: "/reports", label: "AI Reports", icon: FileText },
+          { href: "/performance", label: "Performance", icon: Activity },
+          { href: "/settings", label: "Settings", icon: Settings },
+        ];
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
