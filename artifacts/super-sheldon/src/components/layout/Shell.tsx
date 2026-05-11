@@ -19,6 +19,7 @@ import {
   ExternalLink,
   GraduationCap,
   Heart,
+  Mail,
   ShieldCheck,
 } from "lucide-react";
 import ClassPulseLogo from "../ClassPulseLogo";
@@ -90,6 +91,7 @@ export default function Shell({ children }: { children: ReactNode }) {
           { href: "/admin", label: "Admin Overview", icon: ShieldCheck },
           { href: "/students", label: "Students", icon: GraduationCap },
           { href: "/reports", label: "AI Reports", icon: FileText },
+          { href: "/admin/logs", label: "Email Logs", icon: Mail },
           { href: "/settings", label: "Settings", icon: Settings },
         ]
       : [

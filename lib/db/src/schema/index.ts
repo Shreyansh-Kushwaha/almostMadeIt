@@ -11,3 +11,4 @@ export * from "./quizEvents";
 export * from "./churnPredictions";
 export * from "./parentReports";
 export * from "./interventions";
+export * from "./deliveryLogs";

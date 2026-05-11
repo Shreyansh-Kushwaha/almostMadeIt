@@ -1,9 +1,13 @@
 import { Router, type IRouter } from "express";
-import { db, reportsTable, classesTable } from "@workspace/db";
+import { db, reportsTable, classesTable, deliveryLogsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, type AuthRequest } from "../lib/auth";
+import { requireAuth, createToken, type AuthRequest } from "../lib/auth";
 import { GetReportParams } from "@workspace/api-zod";
 import { getSessionById as getMongoSession } from "@workspace/mongo";
+import { z } from "zod";
+import { logger } from "../lib/logger";
+import { generateAndStoreReportPdf } from "../lib/pdf";
+import { sendReportEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -147,6 +151,183 @@ router.get("/reports/:reportId", requireAuth, async (req, res): Promise<void> =>
     : undefined;
   const synth = cls ? null : await enrichSynthClass(report);
   res.json(formatReport(report, cls ?? null, synth));
+});
+
+// Mint a token tied to the requester's identity so the Playwright browser
+// can authenticate when it fetches /api/reports/:id from the print page.
+function tokenForRequest(authReq: AuthRequest): string {
+  if (authReq.teacher.wiseTeacherId) {
+    return createToken({ role: authReq.role, wiseTeacherId: authReq.teacher.wiseTeacherId });
+  }
+  return createToken({ role: authReq.role, teacherId: authReq.teacher.id });
+}
+
+// Look up the report row (auth-scoped) — shared by /pdf and /send routes.
+async function loadReportForRequest(
+  authReq: AuthRequest,
+  reportId: number,
+): Promise<typeof reportsTable.$inferSelect | null> {
+  if (authReq.role === "admin") {
+    const [r] = await db.select().from(reportsTable).where(eq(reportsTable.id, reportId));
+    return r ?? null;
+  }
+  if (authReq.teacher.wiseTeacherId) {
+    const [r] = await db
+      .select()
+      .from(reportsTable)
+      .where(
+        and(
+          eq(reportsTable.id, reportId),
+          eq(reportsTable.wiseTeacherId, authReq.teacher.wiseTeacherId),
+        ),
+      );
+    return r ?? null;
+  }
+  const [r] = await db
+    .select()
+    .from(reportsTable)
+    .where(and(eq(reportsTable.id, reportId), eq(reportsTable.teacherId, authReq.teacher.id)));
+  return r ?? null;
+}
+
+router.post("/reports/:reportId/pdf", requireAuth, async (req, res): Promise<void> => {
+  const authReq = req as AuthRequest;
+  const rawId = Array.isArray(req.params.reportId) ? req.params.reportId[0] : req.params.reportId;
+  const params = GetReportParams.safeParse({ reportId: parseInt(rawId, 10) });
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid report ID" });
+    return;
+  }
+  const report = await loadReportForRequest(authReq, params.data.reportId);
+  if (!report) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+  try {
+    const pdfUrl = await generateAndStoreReportPdf(report.id, {
+      authToken: tokenForRequest(authReq),
+    });
+    // Cache the URL so the next download / send can skip re-rendering.
+    await db.update(reportsTable).set({ pdfUrl }).where(eq(reportsTable.id, report.id));
+    res.json({ pdfUrl });
+  } catch (e) {
+    const err = e as Error;
+    logger.error({ err, reportId: report.id }, "PDF render failed");
+    res.status(500).json({ error: `PDF render failed: ${err.message}` });
+  }
+});
+
+const SendReportBody = z.object({
+  recipientEmail: z.string().email().optional(),
+});
+
+router.post("/reports/:reportId/send", requireAuth, async (req, res): Promise<void> => {
+  const authReq = req as AuthRequest;
+  const rawId = Array.isArray(req.params.reportId) ? req.params.reportId[0] : req.params.reportId;
+  const params = GetReportParams.safeParse({ reportId: parseInt(rawId, 10) });
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid report ID" });
+    return;
+  }
+  const body = SendReportBody.safeParse(req.body ?? {});
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+
+  const report = await loadReportForRequest(authReq, params.data.reportId);
+  if (!report) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+
+  // Recipient: explicit override > teacher's on-file email. Reports go to the
+  // teacher who ran the session, not the parent.
+  const recipient = (body.data.recipientEmail ?? "").trim() || authReq.teacher.email || "";
+
+  // Resolve student/subject/date for the email body.
+  const cls = report.classId
+    ? (await db.select().from(classesTable).where(eq(classesTable.id, report.classId)))[0]
+    : undefined;
+  const synth = cls ? null : await enrichSynthClass(report);
+  const studentName = cls?.studentName ?? synth?.studentName ?? "Student";
+  const subject = cls?.subject ?? synth?.subject ?? "Class";
+  const scheduledAtIso =
+    cls?.scheduledAt?.toISOString?.() ?? synth?.scheduledAt ?? report.createdAt.toISOString();
+  const scheduledAtPretty = new Date(scheduledAtIso).toLocaleString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  // Render PDF on demand if we don't already have one cached. (Teachers may
+  // edit the report later; we currently treat the cached PDF as good — we
+  // can add an "invalidate" flag when an edit endpoint exists.)
+  let pdfUrl: string;
+  if (report.pdfUrl) {
+    pdfUrl = report.pdfUrl;
+  } else {
+    try {
+      pdfUrl = await generateAndStoreReportPdf(report.id, {
+        authToken: tokenForRequest(authReq),
+      });
+      await db.update(reportsTable).set({ pdfUrl }).where(eq(reportsTable.id, report.id));
+    } catch (e) {
+      const err = e as Error;
+      logger.error({ err, reportId: report.id }, "PDF render failed in send flow");
+      // Still record a failed delivery row so the admin Logs page surfaces it.
+      await db.insert(deliveryLogsTable).values({
+        reportId: report.id,
+        channel: "email",
+        status: "failed",
+        recipient,
+        intendedRecipient: authReq.teacher.email,
+        pdfUrl: null,
+        errorMessage: `pdf_render_failed: ${err.message}`.slice(0, 500),
+        triggeredBy: `${authReq.role}:${authReq.teacher.email}`,
+      });
+      res.status(500).json({ error: `PDF render failed: ${err.message}` });
+      return;
+    }
+  }
+
+  const safeName = studentName.replace(/[^A-Za-z0-9]+/g, "_");
+  const pdfFilename = `ClassPulse_Report_${safeName}_${report.id}.pdf`;
+
+  const delivery = await sendReportEmail({
+    toEmail: recipient,
+    teacherName: authReq.teacher.name,
+    studentName,
+    subject,
+    scheduledAtPretty,
+    pdfUrl,
+    pdfFilename,
+    overallScore: report.overallScore,
+    aiSummary: report.aiSummary ?? null,
+    reportId: report.id,
+  });
+
+  // Audit-log every send attempt, regardless of outcome. The admin Logs page
+  // reads from this table.
+  await db.insert(deliveryLogsTable).values({
+    reportId: report.id,
+    channel: "email",
+    status: delivery.status,
+    recipient: recipient || null,
+    intendedRecipient: authReq.teacher.email,
+    pdfUrl,
+    errorMessage: delivery.error,
+    triggeredBy: `${authReq.role}:${authReq.teacher.email}`,
+  });
+
+  res.json({
+    status: delivery.status,
+    recipient: recipient || null,
+    pdfUrl,
+    error: delivery.error,
+  });
 });
 
 export default router;

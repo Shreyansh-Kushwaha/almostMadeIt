@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   Search, Loader2, User2, Sparkles, ChevronLeft, ShieldCheck,
-  GraduationCap, Users, Lock, AlertTriangle,
+  GraduationCap, Users, AlertTriangle,
 } from "lucide-react";
 import ClassPulseLogo from "@/components/ClassPulseLogo";
 import { enableDemoMode, disableDemoMode } from "@/lib/demoData";
@@ -21,7 +21,7 @@ import { enableDemoMode, disableDemoMode } from "@/lib/demoData";
 type TeacherOption = { id: string; name: string; subject: string; avatarUrl?: string | null; totalClasses: number };
 type StudentOption = { id: string; name: string; subject?: string | null; grade?: string | null; avatarUrl?: string | null };
 
-type Step = "role" | "admin" | "teacher" | "student";
+type Step = "role" | "teacher" | "student";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -38,6 +38,22 @@ export default function Login() {
   };
 
   const ensureLive = () => disableDemoMode();
+
+  // Preview-mode: clicking Admin authenticates immediately — no password.
+  const adminLogin = useAdminLogin({
+    mutation: {
+      onSuccess: (data) => {
+        localStorage.setItem("sheldon_token", data.token);
+        toast.success("Welcome, Admin");
+        goLoading();
+      },
+      onError: () => toast.error("Couldn't sign in as admin"),
+    },
+  });
+  const signInAsAdmin = () => {
+    ensureLive();
+    adminLogin.mutate({ data: {} });
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden p-6">
@@ -65,7 +81,6 @@ export default function Login() {
               className="text-muted-foreground mt-2"
             >
               {step === "role" && "Who's signing in today?"}
-              {step === "admin" && "Admin access — enter password"}
               {step === "teacher" && "Pick your teacher profile"}
               {step === "student" && "Pick your name to continue"}
             </motion.p>
@@ -101,17 +116,14 @@ export default function Login() {
                 <RoleCard
                   icon={<ShieldCheck className="w-6 h-6" />}
                   title="Admin"
-                  subtitle="Internal team — password required"
-                  onClick={() => { ensureLive(); setStep("admin"); }}
+                  subtitle="Preview access — no password"
+                  onClick={signInAsAdmin}
                   testId="role-admin"
                   accent="primary"
+                  loading={adminLogin.isPending}
                 />
               </div>
             </motion.div>
-          )}
-
-          {step === "admin" && (
-            <AdminStep key="admin" onBack={() => setStep("role")} onSuccess={goLoading} />
           )}
 
           {step === "teacher" && (
@@ -155,16 +167,17 @@ function DemoCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-function RoleCard({ icon, title, subtitle, onClick, testId, accent }: {
-  icon: React.ReactNode; title: string; subtitle: string; onClick: () => void; testId: string; accent?: "primary";
+function RoleCard({ icon, title, subtitle, onClick, testId, accent, loading }: {
+  icon: React.ReactNode; title: string; subtitle: string; onClick: () => void; testId: string; accent?: "primary"; loading?: boolean;
 }) {
   return (
     <motion.button
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
+      whileHover={loading ? undefined : { y: -3 }}
+      whileTap={loading ? undefined : { scale: 0.98 }}
+      onClick={loading ? undefined : onClick}
+      disabled={loading}
       data-testid={`button-${testId}`}
-      className={`group relative text-left rounded-xl border bg-card/60 backdrop-blur-xl p-5 transition-colors ${
+      className={`group relative text-left rounded-xl border bg-card/60 backdrop-blur-xl p-5 transition-colors disabled:opacity-60 ${
         accent === "primary"
           ? "border-primary/40 hover:border-primary/70"
           : "border-white/10 hover:border-primary/40"
@@ -173,7 +186,7 @@ function RoleCard({ icon, title, subtitle, onClick, testId, accent }: {
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
         accent === "primary" ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary"
       }`}>
-        {icon}
+        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : icon}
       </div>
       <h3 className="font-semibold text-base">{title}</h3>
       <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
@@ -192,59 +205,6 @@ function BackButton({ onClick }: { onClick: () => void }) {
     >
       <ChevronLeft className="w-3 h-3" /> Back to role
     </button>
-  );
-}
-
-// ─── Admin step ───────────────────────────────────────────────────────────────
-
-function AdminStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
-  const [password, setPassword] = useState("");
-  const mutation = useAdminLogin({
-    mutation: {
-      onSuccess: (data) => {
-        localStorage.setItem("sheldon_token", data.token);
-        toast.success("Welcome, Admin");
-        onSuccess();
-      },
-      onError: () => toast.error("Wrong password"),
-    },
-  });
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.2 }}
-      className="max-w-md mx-auto"
-    >
-      <BackButton onClick={onBack} />
-      <form
-        onSubmit={(e) => { e.preventDefault(); if (password) mutation.mutate({ data: { password } }); }}
-        className="rounded-xl border border-white/10 bg-card/60 backdrop-blur-xl p-6 space-y-4"
-      >
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Lock className="w-4 h-4 text-primary" /> Admin password
-        </div>
-        <Input
-          type="password"
-          autoFocus
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter admin password"
-          className="bg-background/50"
-          data-testid="input-admin-password"
-        />
-        <Button
-          type="submit"
-          disabled={!password || mutation.isPending}
-          className="w-full"
-          data-testid="button-admin-submit"
-        >
-          {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign in as Admin"}
-        </Button>
-      </form>
-    </motion.div>
   );
 }
 

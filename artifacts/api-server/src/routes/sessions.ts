@@ -2,10 +2,12 @@ import { Router, type IRouter } from "express";
 import { db, sessionsTable, classesTable, reportsTable, transcriptsTable, teachersTable } from "@workspace/db";
 import { eq, and, asc, or } from "drizzle-orm";
 import { z } from "zod/v4";
-import { requireAuth, type AuthRequest } from "../lib/auth";
+import { requireAuth, createToken, type AuthRequest } from "../lib/auth";
 import { StartSessionBody, FinishSessionParams } from "@workspace/api-zod";
 import { generateClassReport } from "../lib/azure-openai";
 import { getSessionById as getMongoSession } from "@workspace/mongo";
+import { logger } from "../lib/logger";
+import { generateAndStoreReportPdf } from "../lib/pdf";
 
 const router: IRouter = Router();
 
@@ -418,6 +420,24 @@ router.post("/sessions/:sessionId/finish", requireAuth, async (req, res): Promis
     class: session.classId
       ? null // legacy path filled above; left null to avoid double-fetch
       : { studentName, subject, durationMinutes: durationMinutes ?? 60 },
+  });
+
+  // Fire-and-forget PDF render so the URL is ready by the time the teacher
+  // clicks "Send to my email." Failures are logged, not surfaced — render
+  // can be retried by hitting POST /reports/:id/pdf. We mint a fresh token
+  // for the requester so the Playwright browser can fetch the report from
+  // /api/reports/:id under their identity.
+  const renderToken = authReq.teacher.wiseTeacherId
+    ? createToken({ role: authReq.role, wiseTeacherId: authReq.teacher.wiseTeacherId })
+    : createToken({ role: authReq.role, teacherId: authReq.teacher.id });
+  setImmediate(() => {
+    generateAndStoreReportPdf(report.id, { authToken: renderToken })
+      .then((pdfUrl) =>
+        db.update(reportsTable).set({ pdfUrl }).where(eq(reportsTable.id, report.id)),
+      )
+      .catch((err) => {
+        logger.error({ err, reportId: report.id }, "Background PDF render failed");
+      });
   });
 });
 

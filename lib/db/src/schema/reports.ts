@@ -40,6 +40,10 @@ export const reportsTable = sheldonSchema.table("reports", {
   moodTimeline: jsonb("mood_timeline").$type<{ minute: number; mood: string; valence: number; energy: number }[]>().default([]),
   // Confusion radar timeline: per-minute confusion intensity
   confusionTimeline: jsonb("confusion_timeline").$type<{ minute: number; confusion: number }[]>().default([]),
+  // Cached Supabase public URL of the most recently rendered PDF — set when
+  // the post-session background render finishes, refreshed whenever the
+  // report is re-sent. Lets us skip a re-render on the second click.
+  pdfUrl: text("pdf_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

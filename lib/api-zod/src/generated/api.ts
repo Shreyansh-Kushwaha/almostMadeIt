@@ -130,9 +130,13 @@ export const SelectTeacherResponse = zod.object({
 /**
  * @summary Admin password login — returns an admin-role token
  */
-
 export const AdminLoginBody = zod.object({
-  password: zod.string().min(1),
+  password: zod
+    .string()
+    .optional()
+    .describe(
+      "Ignored in preview deployments — kept for backward compatibility.",
+    ),
 });
 
 export const AdminLoginResponse = zod.object({
@@ -513,6 +517,43 @@ export const GetReportResponse = zod.object({
       notes: zod.string().nullish(),
     })
     .nullish(),
+});
+
+/**
+ * Drives a headless Chromium against the frontend `/reports/{id}/print`
+route, captures a single-page PDF and uploads it. Returns the public
+URL. Idempotent — re-rendering replaces the prior file at the same path.
+
+ * @summary Render the report to PDF and store it in Supabase
+ */
+export const RenderReportPdfParams = zod.object({
+  reportId: zod.coerce.number(),
+});
+
+export const RenderReportPdfResponse = zod.object({
+  pdfUrl: zod.string().url(),
+});
+
+/**
+ * @summary Render PDF if needed and email it to the teacher via n8n
+ */
+export const SendReportEmailParams = zod.object({
+  reportId: zod.coerce.number(),
+});
+
+export const SendReportEmailBody = zod.object({
+  recipientEmail: zod
+    .string()
+    .email()
+    .optional()
+    .describe("Override the teacher's on-file email"),
+});
+
+export const SendReportEmailResponse = zod.object({
+  status: zod.enum(["sent", "skipped", "failed"]),
+  recipient: zod.string().nullish(),
+  pdfUrl: zod.string().url(),
+  error: zod.string().nullish(),
 });
 
 /**
@@ -901,3 +942,24 @@ export const AdminRetentionResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary List recent email-delivery audit rows (admin only)
+ */
+export const AdminDeliveryLogsResponseItem = zod.object({
+  id: zod.number(),
+  reportId: zod.number(),
+  channel: zod.string(),
+  status: zod.enum(["sent", "failed", "skipped"]),
+  recipient: zod.string().nullish(),
+  intendedRecipient: zod.string().nullish(),
+  pdfUrl: zod.string().nullish(),
+  errorMessage: zod.string().nullish(),
+  triggeredBy: zod.string().nullish(),
+  sentAt: zod.coerce.date(),
+  studentName: zod.string().nullish(),
+  subject: zod.string().nullish(),
+});
+export const AdminDeliveryLogsResponse = zod.array(
+  AdminDeliveryLogsResponseItem,
+);

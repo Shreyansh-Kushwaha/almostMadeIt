@@ -21,7 +21,9 @@
     "openai": "^4.77.0",
     "pino": "^9",
     "zod": "catalog:",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "playwright": "^1.49.1",
+    "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

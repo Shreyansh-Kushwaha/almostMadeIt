@@ -1,12 +1,40 @@
-import { useListReports } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useListReports, useRenderReportPdf } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
-import { BrainCircuit, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+import { BrainCircuit, ChevronRight, Download, Loader2 } from "lucide-react";
 
 export default function Reports() {
   const { data: reports, isLoading } = useListReports();
+  const renderPdf = useRenderReportPdf();
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+  async function downloadReport(id: number, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDownloadingId(id);
+    try {
+      const { pdfUrl } = await renderPdf.mutateAsync({ reportId: id });
+      const cacheBust = `${pdfUrl}${pdfUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+      const a = document.createElement("a");
+      a.href = cacheBust;
+      a.download = `ClassPulse_Report_${id}.pdf`;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      toast.error("Download failed", {
+        description: err instanceof Error ? err.message : "Unable to render PDF",
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>;
@@ -30,7 +58,7 @@ export default function Reports() {
                     <div className="relative w-16 h-16 flex items-center justify-center">
                       <svg className="w-full h-full transform -rotate-90">
                         <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" className="text-muted" strokeWidth="6" />
-                        <circle 
+                        <circle
                           cx="32" cy="32" r="28" fill="none" stroke="currentColor" className="text-primary" strokeWidth="6"
                           strokeDasharray="175" strokeDashoffset={175 - (175 * report.overallScore) / 100}
                           strokeLinecap="round"
@@ -38,7 +66,7 @@ export default function Reports() {
                       </svg>
                       <span className="absolute text-lg font-bold">{report.overallScore}</span>
                     </div>
-                    
+
                     <div>
                       <h3 className="font-semibold text-lg flex items-center gap-2">
                         {report.class?.studentName} - {report.class?.subject}
@@ -52,7 +80,23 @@ export default function Reports() {
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => downloadReport(report.id, e)}
+                      disabled={downloadingId === report.id}
+                      data-testid={`button-download-${report.id}`}
+                    >
+                      {downloadingId === report.id ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-1" />
+                      )}
+                      PDF
+                    </Button>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>

@@ -3,7 +3,7 @@ import { db, teachersTable, studentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   hashPassword, verifyPassword, createToken, requireAuth,
-  type AuthRequest, ADMIN_PASSWORD,
+  type AuthRequest,
 } from "../lib/auth";
 import { LoginBody } from "@workspace/api-zod";
 import { z } from "zod/v4";
@@ -148,15 +148,14 @@ router.post("/auth/select-student", async (req, res): Promise<void> => {
 });
 
 // ── Admin login ───────────────────────────────────────────────────────────
-const AdminLoginBody = z.object({ password: z.string().min(1) });
+// Preview-mode: anyone can sign in as admin to inspect every feature. The
+// password field is accepted but ignored; the schema is kept so older
+// clients that still send a password don't 400.
+const AdminLoginBody = z.object({ password: z.string().optional() });
 router.post("/auth/admin-login", async (req, res): Promise<void> => {
-  const parsed = AdminLoginBody.safeParse(req.body);
+  const parsed = AdminLoginBody.safeParse(req.body ?? {});
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
-    return;
-  }
-  if (parsed.data.password !== ADMIN_PASSWORD) {
-    res.status(401).json({ error: "Invalid admin password" });
     return;
   }
   // Admin token uses legacy int teacherId=1 backing so all Supabase routes

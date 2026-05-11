@@ -15,12 +15,14 @@ import Dashboard from "./pages/Dashboard";
 import Classes from "./pages/Classes";
 import Reports from "./pages/Reports";
 import ReportDetail from "./pages/ReportDetail";
+import ReportPrint from "./pages/ReportPrint";
 import Performance from "./pages/Performance";
 import Settings from "./pages/Settings";
 import Monitor from "./pages/Monitor";
 import Students from "./pages/Students";
 import ParentDashboard from "./pages/ParentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminLogs from "./pages/AdminLogs";
 import Shell from "./components/layout/Shell";
 
 const queryClient = new QueryClient({
@@ -91,16 +93,22 @@ function MainLayout() {
 
   return (
     <Shell>
+      {/* Use Wouter's children syntax (not `component={() => ...}`) so the
+          page's React element type stays stable across MainLayout re-renders.
+          Inline arrows here create a new component identity every render,
+          which makes React unmount + remount the page (replaying entry
+          animations and looking like the page is flickering). */}
       <Switch>
-        <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
-        <Route path="/classes" component={() => <ProtectedRoute component={Classes} />} />
-        <Route path="/students" component={() => <ProtectedRoute component={Students} />} />
-        <Route path="/students/:studentId" component={() => <ProtectedRoute component={ParentDashboard} />} />
-        <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} />} />
-        <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
-        <Route path="/reports/:reportId" component={() => <ProtectedRoute component={ReportDetail} />} />
-        <Route path="/performance" component={() => <ProtectedRoute component={Performance} />} />
-        <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+        <Route path="/"><ProtectedRoute component={Dashboard} /></Route>
+        <Route path="/classes"><ProtectedRoute component={Classes} /></Route>
+        <Route path="/students"><ProtectedRoute component={Students} /></Route>
+        <Route path="/students/:studentId"><ProtectedRoute component={ParentDashboard} /></Route>
+        <Route path="/admin"><ProtectedRoute component={AdminDashboard} /></Route>
+        <Route path="/admin/logs"><ProtectedRoute component={AdminLogs} /></Route>
+        <Route path="/reports"><ProtectedRoute component={Reports} /></Route>
+        <Route path="/reports/:reportId"><ProtectedRoute component={ReportDetail} /></Route>
+        <Route path="/performance"><ProtectedRoute component={Performance} /></Route>
+        <Route path="/settings"><ProtectedRoute component={Settings} /></Route>
         <Route component={NotFound} />
       </Switch>
     </Shell>
@@ -126,6 +134,9 @@ function Router() {
       <Route path="/loading" component={LoadingSplash} />
       {/* Standalone monitor popup — no Shell, no auth redirect */}
       <Route path="/monitor" component={Monitor} />
+      {/* Print-only view used by the backend Playwright PDF renderer.
+          No Shell, no auth redirect — the renderer hits this directly. */}
+      <Route path="/reports/:reportId/print" component={ReportPrint} />
       <Route path="*">
         <MainLayout />
       </Route>

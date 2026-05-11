@@ -7,9 +7,10 @@ import {
   reportsTable,
   sessionsTable,
   churnPredictionsTable,
+  deliveryLogsTable,
 } from "@workspace/db";
 import { eq, desc, gte, and } from "drizzle-orm";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, type AuthRequest } from "../lib/auth";
 import {
   listTeachers as listMongoTeachers,
   listStudents as listMongoStudents,
@@ -316,5 +317,53 @@ router.get("/admin/retention", requireAuth, async (_req, res): Promise<void> => 
 function round(n: number): number {
   return Math.round(n * 10) / 10;
 }
+
+// ── Email-delivery logs (admin only) ──────────────────────────────────────
+router.get("/admin/delivery-logs", requireAuth, async (req, res): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (authReq.role !== "admin") {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+  // Join with reports → classes for the row's student/subject context.
+  const rows = await db
+    .select({
+      id: deliveryLogsTable.id,
+      reportId: deliveryLogsTable.reportId,
+      channel: deliveryLogsTable.channel,
+      status: deliveryLogsTable.status,
+      recipient: deliveryLogsTable.recipient,
+      intendedRecipient: deliveryLogsTable.intendedRecipient,
+      pdfUrl: deliveryLogsTable.pdfUrl,
+      errorMessage: deliveryLogsTable.errorMessage,
+      triggeredBy: deliveryLogsTable.triggeredBy,
+      sentAt: deliveryLogsTable.sentAt,
+      reportClassId: reportsTable.classId,
+      studentName: classesTable.studentName,
+      subject: classesTable.subject,
+    })
+    .from(deliveryLogsTable)
+    .leftJoin(reportsTable, eq(reportsTable.id, deliveryLogsTable.reportId))
+    .leftJoin(classesTable, eq(classesTable.id, reportsTable.classId))
+    .orderBy(desc(deliveryLogsTable.sentAt))
+    .limit(200);
+
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      reportId: r.reportId,
+      channel: r.channel,
+      status: r.status,
+      recipient: r.recipient,
+      intendedRecipient: r.intendedRecipient,
+      pdfUrl: r.pdfUrl,
+      errorMessage: r.errorMessage,
+      triggeredBy: r.triggeredBy,
+      sentAt: r.sentAt.toISOString(),
+      studentName: r.studentName ?? null,
+      subject: r.subject ?? null,
+    })),
+  );
+});
 
 export default router;

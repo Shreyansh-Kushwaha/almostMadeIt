@@ -27,6 +27,7 @@ import type {
   ConfusionSignal,
   CreateInterventionBody,
   DashboardStats,
+  DeliveryLogEntry,
   DetectConfusionBody,
   ErrorResponse,
   HealthStatus,
@@ -40,10 +41,13 @@ import type {
   ParentReport,
   QuizEvent,
   RecordQuizEventBody,
+  RenderReportPdf200,
   Report,
   RetentionSnapshot,
   SelectStudentBody,
   SelectTeacherBody,
+  SendReportEmail200,
+  SendReportEmailBody,
   Session,
   StartCustomSessionBody,
   StartSessionBody,
@@ -1537,6 +1541,181 @@ export function useGetReport<
 }
 
 /**
+ * Drives a headless Chromium against the frontend `/reports/{id}/print`
+route, captures a single-page PDF and uploads it. Returns the public
+URL. Idempotent — re-rendering replaces the prior file at the same path.
+
+ * @summary Render the report to PDF and store it in Supabase
+ */
+export const getRenderReportPdfUrl = (reportId: number) => {
+  return `/api/reports/${reportId}/pdf`;
+};
+
+export const renderReportPdf = async (
+  reportId: number,
+  options?: RequestInit,
+): Promise<RenderReportPdf200> => {
+  return customFetch<RenderReportPdf200>(getRenderReportPdfUrl(reportId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRenderReportPdfMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renderReportPdf>>,
+    TError,
+    { reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renderReportPdf>>,
+  TError,
+  { reportId: number },
+  TContext
+> => {
+  const mutationKey = ["renderReportPdf"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renderReportPdf>>,
+    { reportId: number }
+  > = (props) => {
+    const { reportId } = props ?? {};
+
+    return renderReportPdf(reportId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenderReportPdfMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renderReportPdf>>
+>;
+
+export type RenderReportPdfMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Render the report to PDF and store it in Supabase
+ */
+export const useRenderReportPdf = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renderReportPdf>>,
+    TError,
+    { reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof renderReportPdf>>,
+  TError,
+  { reportId: number },
+  TContext
+> => {
+  return useMutation(getRenderReportPdfMutationOptions(options));
+};
+
+/**
+ * @summary Render PDF if needed and email it to the teacher via n8n
+ */
+export const getSendReportEmailUrl = (reportId: number) => {
+  return `/api/reports/${reportId}/send`;
+};
+
+export const sendReportEmail = async (
+  reportId: number,
+  sendReportEmailBody?: SendReportEmailBody,
+  options?: RequestInit,
+): Promise<SendReportEmail200> => {
+  return customFetch<SendReportEmail200>(getSendReportEmailUrl(reportId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendReportEmailBody),
+  });
+};
+
+export const getSendReportEmailMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendReportEmail>>,
+    TError,
+    { reportId: number; data: BodyType<SendReportEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendReportEmail>>,
+  TError,
+  { reportId: number; data: BodyType<SendReportEmailBody> },
+  TContext
+> => {
+  const mutationKey = ["sendReportEmail"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendReportEmail>>,
+    { reportId: number; data: BodyType<SendReportEmailBody> }
+  > = (props) => {
+    const { reportId, data } = props ?? {};
+
+    return sendReportEmail(reportId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendReportEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendReportEmail>>
+>;
+export type SendReportEmailMutationBody = BodyType<SendReportEmailBody>;
+export type SendReportEmailMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Render PDF if needed and email it to the teacher via n8n
+ */
+export const useSendReportEmail = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendReportEmail>>,
+    TError,
+    { reportId: number; data: BodyType<SendReportEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendReportEmail>>,
+  TError,
+  { reportId: number; data: BodyType<SendReportEmailBody> },
+  TContext
+> => {
+  return useMutation(getSendReportEmailMutationOptions(options));
+};
+
+/**
  * @summary Get dashboard summary statistics
  */
 export const getGetDashboardStatsUrl = () => {
@@ -2839,6 +3018,81 @@ export function useAdminRetention<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getAdminRetentionQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List recent email-delivery audit rows (admin only)
+ */
+export const getAdminDeliveryLogsUrl = () => {
+  return `/api/admin/delivery-logs`;
+};
+
+export const adminDeliveryLogs = async (
+  options?: RequestInit,
+): Promise<DeliveryLogEntry[]> => {
+  return customFetch<DeliveryLogEntry[]>(getAdminDeliveryLogsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminDeliveryLogsQueryKey = () => {
+  return [`/api/admin/delivery-logs`] as const;
+};
+
+export const getAdminDeliveryLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminDeliveryLogs>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminDeliveryLogs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminDeliveryLogsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminDeliveryLogs>>
+  > = ({ signal }) => adminDeliveryLogs({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminDeliveryLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminDeliveryLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeliveryLogs>>
+>;
+export type AdminDeliveryLogsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List recent email-delivery audit rows (admin only)
+ */
+
+export function useAdminDeliveryLogs<
+  TData = Awaited<ReturnType<typeof adminDeliveryLogs>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminDeliveryLogs>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminDeliveryLogsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

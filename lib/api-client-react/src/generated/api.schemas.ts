@@ -67,8 +67,8 @@ export interface SelectStudentBody {
 }
 
 export interface AdminLoginBody {
-  /** @minLength 1 */
-  password: string;
+  /** Ignored in preview deployments — kept for backward compatibility. */
+  password?: string;
 }
 
 export type AdminLoginResponseRole =
@@ -500,6 +500,30 @@ export interface RetentionSnapshot {
   riskBuckets: RetentionSnapshotRiskBucketsItem[];
 }
 
+export type DeliveryLogEntryStatus =
+  (typeof DeliveryLogEntryStatus)[keyof typeof DeliveryLogEntryStatus];
+
+export const DeliveryLogEntryStatus = {
+  sent: "sent",
+  failed: "failed",
+  skipped: "skipped",
+} as const;
+
+export interface DeliveryLogEntry {
+  id: number;
+  reportId: number;
+  channel: string;
+  status: DeliveryLogEntryStatus;
+  recipient?: string | null;
+  intendedRecipient?: string | null;
+  pdfUrl?: string | null;
+  errorMessage?: string | null;
+  triggeredBy?: string | null;
+  sentAt: string;
+  studentName?: string | null;
+  subject?: string | null;
+}
+
 export type ListClassesParams = {
   /**
    * @minimum 1
@@ -526,3 +550,28 @@ export const ListClassesStatus = {
   cancelled: "cancelled",
   active: "active",
 } as const;
+
+export type RenderReportPdf200 = {
+  pdfUrl: string;
+};
+
+export type SendReportEmailBody = {
+  /** Override the teacher's on-file email */
+  recipientEmail?: string;
+};
+
+export type SendReportEmail200Status =
+  (typeof SendReportEmail200Status)[keyof typeof SendReportEmail200Status];
+
+export const SendReportEmail200Status = {
+  sent: "sent",
+  skipped: "skipped",
+  failed: "failed",
+} as const;
+
+export type SendReportEmail200 = {
+  status: SendReportEmail200Status;
+  recipient?: string | null;
+  pdfUrl: string;
+  error?: string | null;
+};

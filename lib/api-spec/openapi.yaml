@@ -394,6 +394,90 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /reports/{reportId}/pdf:
+    post:
+      operationId: renderReportPdf
+      tags: [reports]
+      summary: Render the report to PDF and store it in Supabase
+      description: |
+        Drives a headless Chromium against the frontend `/reports/{id}/print`
+        route, captures a single-page PDF and uploads it. Returns the public
+        URL. Idempotent — re-rendering replaces the prior file at the same path.
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PDF rendered and stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pdfUrl]
+                properties:
+                  pdfUrl:
+                    type: string
+                    format: uri
+        "500":
+          description: Render or upload failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /reports/{reportId}/send:
+    post:
+      operationId: sendReportEmail
+      tags: [reports]
+      summary: Render PDF if needed and email it to the teacher via n8n
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipientEmail:
+                  type: string
+                  format: email
+                  description: Override the teacher's on-file email
+      responses:
+        "200":
+          description: Delivery dispatched
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, pdfUrl]
+                properties:
+                  status:
+                    type: string
+                    enum: [sent, skipped, failed]
+                  recipient:
+                    type: string
+                    nullable: true
+                  pdfUrl:
+                    type: string
+                    format: uri
+                  error:
+                    type: string
+                    nullable: true
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /dashboard/stats:
     get:
       operationId: getDashboardStats
@@ -690,6 +774,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/RetentionSnapshot"
 
+  /admin/delivery-logs:
+    get:
+      operationId: adminDeliveryLogs
+      tags: [admin]
+      summary: List recent email-delivery audit rows (admin only)
+      responses:
+        "200":
+          description: Delivery log entries (most recent first, capped at 200)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeliveryLogEntry"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -754,8 +859,8 @@ components:
       properties:
         password:
           type: string
-          minLength: 1
-      required: [password]
+          description: Ignored in preview deployments — kept for backward compatibility.
+      required: []
 
     AdminLoginResponse:
       type: object
@@ -1469,3 +1574,41 @@ components:
                 type: integer
             required: [label, count]
       required: [totalStudents, atRisk, churned30d, retainedRate, riskBuckets]
+
+    DeliveryLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        reportId:
+          type: integer
+        channel:
+          type: string
+        status:
+          type: string
+          enum: [sent, failed, skipped]
+        recipient:
+          type: string
+          nullable: true
+        intendedRecipient:
+          type: string
+          nullable: true
+        pdfUrl:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        triggeredBy:
+          type: string
+          nullable: true
+        sentAt:
+          type: string
+          format: date-time
+        studentName:
+          type: string
+          nullable: true
+        subject:
+          type: string
+          nullable: true
+      required: [id, reportId, channel, status, sentAt]
