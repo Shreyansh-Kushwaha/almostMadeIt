@@ -1,7 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm --filter @workspace/super-sheldon run build",
   "installCommand": "pnpm install --frozen-lockfile",
-  "outputDirectory": "artifacts/super-sheldon/dist/public",
-  "framework": null
+  "buildCommand": "pnpm --filter @workspace/super-sheldon run build && rm -rf public && cp -r artifacts/super-sheldon/dist/public public",
+  "outputDirectory": "public"
 }
