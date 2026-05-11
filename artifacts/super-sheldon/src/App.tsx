@@ -3,10 +3,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, setDemoHandler } from "@workspace/api-client-react";
+import { getDemoResponse, isDemoMode } from "./lib/demoData";
 import NotFound from "@/pages/not-found";
 
 import Login from "./pages/Login";
+import LoadingSplash from "./pages/LoadingSplash";
+import BackendStatusToast from "./components/BackendStatusToast";
 import Dashboard from "./pages/Dashboard";
 import Classes from "./pages/Classes";
 import Reports from "./pages/Reports";
@@ -14,6 +17,9 @@ import ReportDetail from "./pages/ReportDetail";
 import Performance from "./pages/Performance";
 import Settings from "./pages/Settings";
 import Monitor from "./pages/Monitor";
+import Students from "./pages/Students";
+import ParentDashboard from "./pages/ParentDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import Shell from "./components/layout/Shell";
 
 const queryClient = new QueryClient({
@@ -66,6 +72,9 @@ function MainLayout() {
       <Switch>
         <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
         <Route path="/classes" component={() => <ProtectedRoute component={Classes} />} />
+        <Route path="/students" component={() => <ProtectedRoute component={Students} />} />
+        <Route path="/students/:studentId" component={() => <ProtectedRoute component={ParentDashboard} />} />
+        <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} />} />
         <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
         <Route path="/reports/:reportId" component={() => <ProtectedRoute component={ReportDetail} />} />
         <Route path="/performance" component={() => <ProtectedRoute component={Performance} />} />
@@ -79,11 +88,19 @@ function MainLayout() {
 function Router() {
   useEffect(() => {
     document.documentElement.classList.add("dark");
+    // Hackathon-safe demo mode: when active, intercept every API call and
+    // return canned fixture data instead of hitting the backend.
+    setDemoHandler((method, url, body) => {
+      if (!isDemoMode()) return null;
+      return getDemoResponse(method, url, body);
+    });
+    return () => setDemoHandler(null);
   }, []);
 
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/loading" component={LoadingSplash} />
       {/* Standalone monitor popup — no Shell, no auth redirect */}
       <Route path="/monitor" component={Monitor} />
       <Route path="*">
@@ -101,6 +118,7 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
+        <BackendStatusToast />
       </TooltipProvider>
     </QueryClientProvider>
   );
