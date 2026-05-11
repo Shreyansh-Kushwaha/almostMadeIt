@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import {
@@ -41,7 +41,7 @@ import ClassPulseLogo from "@/components/ClassPulseLogo";
 export default function Landing() {
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.classList.add("dark");
     document.body.classList.add("lp-page");
     return () => {
@@ -52,7 +52,9 @@ export default function Landing() {
   const go = (to: string) => () => setLocation(to);
 
   return (
-    <div className="relative min-h-screen text-white overflow-x-hidden font-sans" style={{ background: "hsl(220 38% 7%)" }}>
+    <div className="relative min-h-screen text-white overflow-x-hidden font-sans isolate">
+      {/* page background layer — sits behind ambient orbs so the glow shows through */}
+      <div aria-hidden className="fixed inset-0 -z-20" style={{ background: "hsl(220 38% 7%)" }} />
       <CustomCursor />
       <AmbientOrbs />
 
@@ -118,7 +120,7 @@ function Nav({ onGetStarted }: { onGetStarted: () => void }) {
 function Hero({ onPrimary, onSecondary }: { onPrimary: () => void; onSecondary: () => void }) {
   return (
     <section className="relative pt-20 lg:pt-28 pb-16">
-      <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.1fr,1fr] gap-12 lg:gap-16 items-center">
+      <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
         {/* text block */}
         <div>
           <motion.div
@@ -949,7 +951,7 @@ function FinalCTA({ onPrimary }: { onPrimary: () => void }) {
 function Footer() {
   return (
     <footer className="border-t border-white/5 mt-8 pt-16 pb-10">
-      <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-[2fr,1fr,1fr,1fr,1fr] gap-10">
+      <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-10">
         <div>
           <div className="flex items-center gap-2.5 mb-4">
             <ClassPulseLogo size={28} />

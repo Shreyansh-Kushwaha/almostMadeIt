@@ -267,26 +267,26 @@ export function VerbRotator({
     return () => clearInterval(id);
   }, [reduced, interval, words.length]);
 
-  return (
-    <span className={`relative inline-flex align-baseline overflow-hidden ${className}`} style={{ lineHeight: 1 }}>
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={words[i]}
-          initial={{ y: "100%", opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: "-100%", opacity: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-gradient-to-b from-[#FFB066] to-[#FF7A00] bg-clip-text text-transparent drop-shadow-[0_0_32px_rgba(255,122,0,0.35)] pr-2"
-        >
+    return (
+      <span className={`relative inline-block align-baseline overflow-hidden ${className}`} style={{ lineHeight: 1 }}>
+        {/* invisible current word sizes the box so trailing text sits flush */}
+        <span className="invisible" aria-hidden>
           {words[i]}
-        </motion.span>
-      </AnimatePresence>
-      {/* invisible spacer to reserve max width */}
-      <span className="invisible" aria-hidden>
-        {words.reduce((a, b) => (a.length > b.length ? a : b))}
+        </span>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={words[i]}
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "-100%", opacity: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 bg-gradient-to-b from-[#FFB066] to-[#FF7A00] bg-clip-text text-transparent drop-shadow-[0_0_32px_rgba(255,122,0,0.35)]"
+          >
+            {words[i]}
+          </motion.span>
+        </AnimatePresence>
       </span>
-    </span>
-  );
+    );
 }
 
 // ─── Pulse waveform — continuous scrolling ECG-style trace ────────────────

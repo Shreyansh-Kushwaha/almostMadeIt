@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
   Search, Loader2, User2, Sparkles, ChevronLeft, ShieldCheck,
-  GraduationCap, Users, Lock,
+  GraduationCap, Users, Lock, AlertTriangle,
 } from "lucide-react";
 import ClassPulseLogo from "@/components/ClassPulseLogo";
 import { enableDemoMode, disableDemoMode } from "@/lib/demoData";
@@ -253,7 +253,7 @@ function AdminStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
 function TeacherStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data: teachers = [], isLoading } = useListTeachersForSelect();
+  const { data: teachers = [], isLoading, isError, refetch } = useListTeachersForSelect();
   const mutation = useSelectTeacher({
     mutation: {
       onSuccess: (data) => {
@@ -301,8 +301,12 @@ function TeacherStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () 
 
       {isLoading ? (
         <PickerLoading label="Loading teachers…" />
+      ) : isError ? (
+        <PickerError label="Couldn't load teachers" onRetry={() => refetch()} />
+      ) : teachers.length === 0 ? (
+        <PickerEmpty label="No teachers available yet" />
       ) : filtered.length === 0 ? (
-        <PickerEmpty query={query} />
+        <PickerEmpty label={`No matches for "${query}"`} />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[55vh] overflow-y-auto pr-1">
           <AnimatePresence mode="popLayout">
@@ -336,7 +340,7 @@ function TeacherStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () 
 function StudentStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data: students = [], isLoading } = useListStudentsForSelect();
+  const { data: students = [], isLoading, isError, refetch } = useListStudentsForSelect();
   const mutation = useSelectStudent({
     mutation: {
       onSuccess: (data) => {
@@ -386,8 +390,12 @@ function StudentStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () 
 
       {isLoading ? (
         <PickerLoading label="Loading students…" />
+      ) : isError ? (
+        <PickerError label="Couldn't load students" onRetry={() => refetch()} />
+      ) : students.length === 0 ? (
+        <PickerEmpty label="No students available yet" />
       ) : filtered.length === 0 ? (
-        <PickerEmpty query={query} />
+        <PickerEmpty label={`No matches for "${query}"`} />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[55vh] overflow-y-auto pr-1">
           <AnimatePresence mode="popLayout">
@@ -475,11 +483,24 @@ function PickerLoading({ label }: { label: string }) {
   );
 }
 
-function PickerEmpty({ query }: { query: string }) {
+function PickerEmpty({ label }: { label: string }) {
   return (
     <div className="text-center py-16 text-muted-foreground">
       <User2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
-      <p>No matches for "{query}"</p>
+      <p>{label}</p>
+    </div>
+  );
+}
+
+function PickerError({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div className="text-center py-16 text-muted-foreground">
+      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-400" />
+      <p className="font-medium text-foreground">{label}</p>
+      <p className="text-xs mt-1">The backend isn't reachable. Check your connection or contact support.</p>
+      <Button variant="outline" size="sm" className="mt-4" onClick={onRetry} data-testid="button-picker-retry">
+        Try again
+      </Button>
     </div>
   );
 }
