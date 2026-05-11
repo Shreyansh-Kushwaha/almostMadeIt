@@ -42,6 +42,7 @@ import type {
   RetentionSnapshot,
   SelectTeacherBody,
   Session,
+  StartCustomSessionBody,
   StartSessionBody,
   Student,
   StudentDetail,
@@ -791,6 +792,92 @@ export const useStartSession = <
   TContext
 > => {
   return useMutation(getStartSessionMutationOptions(options));
+};
+
+/**
+ * @summary Create an ad-hoc class on the fly and start a monitoring session
+ */
+export const getStartCustomSessionUrl = () => {
+  return `/api/sessions/start-custom`;
+};
+
+export const startCustomSession = async (
+  startCustomSessionBody: StartCustomSessionBody,
+  options?: RequestInit,
+): Promise<ActiveSessionResponse> => {
+  return customFetch<ActiveSessionResponse>(getStartCustomSessionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(startCustomSessionBody),
+  });
+};
+
+export const getStartCustomSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startCustomSession>>,
+    TError,
+    { data: BodyType<StartCustomSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startCustomSession>>,
+  TError,
+  { data: BodyType<StartCustomSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["startCustomSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startCustomSession>>,
+    { data: BodyType<StartCustomSessionBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return startCustomSession(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartCustomSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startCustomSession>>
+>;
+export type StartCustomSessionMutationBody = BodyType<StartCustomSessionBody>;
+export type StartCustomSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an ad-hoc class on the fly and start a monitoring session
+ */
+export const useStartCustomSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startCustomSession>>,
+    TError,
+    { data: BodyType<StartCustomSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startCustomSession>>,
+  TError,
+  { data: BodyType<StartCustomSessionBody> },
+  TContext
+> => {
+  return useMutation(getStartCustomSessionMutationOptions(options));
 };
 
 /**

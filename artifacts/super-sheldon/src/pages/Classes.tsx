@@ -14,8 +14,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Inbox,
+  Plus,
 } from "lucide-react";
 import MonitoringModal from "@/components/MonitoringModal";
+import StartCustomClassModal from "@/components/StartCustomClassModal";
 
 interface SelectedClass {
   id: number;
@@ -40,6 +42,7 @@ export default function Classes() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedClass | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
 
   // Debounce search input → committed search query
   useEffect(() => {
@@ -120,12 +123,24 @@ export default function Classes() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your schedule and launch the AI monitoring assistant.
-        </p>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your schedule and launch the AI monitoring assistant.
+          </p>
+        </div>
+        <Button
+          onClick={() => setCustomOpen(true)}
+          data-testid="button-start-custom-class"
+          className="gap-2 shadow-[0_4px_18px_-6px_rgba(255,122,0,0.55)]"
+        >
+          <Plus className="w-4 h-4" />
+          Start Custom Class
+        </Button>
       </div>
+
+      <StartCustomClassModal open={customOpen} onOpenChange={setCustomOpen} />
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -354,6 +354,39 @@ export function getDemoResponse(method: string, fullUrl: string, body?: unknown)
     };
     return activeDemoSession;
   }
+  if (M === "POST" && eq("/api/sessions/start-custom")) {
+    const b = (body as {
+      studentName?: string;
+      subject?: string;
+      durationMinutes?: number;
+      grade?: string;
+      platform?: "zoom" | "google_meet" | "teams";
+    } | undefined) ?? {};
+    const newClassId = 9000 + Math.floor(Math.random() * 1000);
+    const cls: (typeof DEMO_CLASSES)[number] = {
+      id: newClassId,
+      teacherId: DEMO_TEACHER_ID,
+      studentId: 0,
+      studentName: b.studentName ?? "Demo Student",
+      subject: b.subject ?? "Custom Subject",
+      scheduledAt: new Date().toISOString(),
+      durationMinutes: b.durationMinutes ?? 60,
+      platform: b.platform ?? "zoom",
+      meetingUrl: null,
+      status: "in_progress",
+      grade: b.grade ?? "",
+      notes: null,
+    };
+    DEMO_CLASSES.unshift(cls);
+    activeDemoSession = {
+      id: 990 + DEMO_CLASSES.length,
+      classId: newClassId,
+      teacherId: DEMO_TEACHER_ID,
+      startedAt: new Date().toISOString(),
+      status: "active",
+    };
+    return { session: activeDemoSession, class: cls };
+  }
   if (M === "GET" && eq("/api/sessions/active")) {
     if (!activeDemoSession) return { session: null, class: null };
     const cls = DEMO_CLASSES.find((c) => c.id === activeDemoSession!.classId) ?? DEMO_CLASSES[0];

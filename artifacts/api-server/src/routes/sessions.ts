@@ -1,11 +1,81 @@
 import { Router, type IRouter } from "express";
 import { db, sessionsTable, classesTable, reportsTable, transcriptsTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
+import { z } from "zod/v4";
 import { requireAuth, type AuthRequest } from "../lib/auth";
 import { StartSessionBody, FinishSessionParams } from "@workspace/api-zod";
 import { generateClassReport } from "../lib/azure-openai";
 
 const router: IRouter = Router();
+
+// ── Custom class start (ad-hoc session, no pre-scheduled class needed) ───────
+const StartCustomSessionBody = z.object({
+  studentName: z.string().min(1).max(120),
+  subject: z.string().min(1).max(120),
+  durationMinutes: z.number().int().min(5).max(240).optional(),
+  grade: z.string().max(40).optional(),
+  platform: z.enum(["zoom", "google_meet", "teams"]).optional(),
+});
+
+router.post("/sessions/start-custom", requireAuth, async (req, res): Promise<void> => {
+  const authReq = req as AuthRequest;
+  const parsed = StartCustomSessionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+
+  // Finish any existing active session for this teacher
+  await db
+    .update(sessionsTable)
+    .set({ status: "finished", finishedAt: new Date() })
+    .where(and(eq(sessionsTable.teacherId, authReq.teacher.id), eq(sessionsTable.status, "active")));
+
+  // Create the new ad-hoc class (persisted in DB)
+  const [cls] = await db
+    .insert(classesTable)
+    .values({
+      teacherId: authReq.teacher.id,
+      studentName: parsed.data.studentName,
+      subject: parsed.data.subject,
+      scheduledAt: new Date(),
+      durationMinutes: parsed.data.durationMinutes ?? 60,
+      platform: parsed.data.platform ?? "zoom",
+      status: "in_progress",
+      grade: parsed.data.grade ?? null,
+      notes: "Custom ad-hoc class created from teacher dashboard",
+    })
+    .returning();
+
+  // Create the session (persisted in DB)
+  const [session] = await db
+    .insert(sessionsTable)
+    .values({ classId: cls.id, teacherId: authReq.teacher.id, status: "active" })
+    .returning();
+
+  res.status(201).json({
+    session: {
+      id: session.id,
+      classId: session.classId,
+      teacherId: session.teacherId,
+      startedAt: session.startedAt.toISOString(),
+      status: session.status,
+    },
+    class: {
+      id: cls.id,
+      teacherId: cls.teacherId,
+      studentName: cls.studentName,
+      subject: cls.subject,
+      scheduledAt: cls.scheduledAt.toISOString(),
+      durationMinutes: cls.durationMinutes,
+      platform: cls.platform,
+      meetingUrl: cls.meetingUrl,
+      status: cls.status,
+      grade: cls.grade,
+      notes: cls.notes,
+    },
+  });
+});
 
 router.post("/sessions/start", requireAuth, async (req, res): Promise<void> => {
   const authReq = req as AuthRequest;

@@ -159,6 +159,30 @@ export const StartSessionBody = zod.object({
 });
 
 /**
+ * @summary Create an ad-hoc class on the fly and start a monitoring session
+ */
+export const startCustomSessionBodyStudentNameMax = 120;
+
+export const startCustomSessionBodySubjectMax = 120;
+
+export const startCustomSessionBodyDurationMinutesMin = 5;
+export const startCustomSessionBodyDurationMinutesMax = 240;
+
+export const startCustomSessionBodyGradeMax = 40;
+
+export const StartCustomSessionBody = zod.object({
+  studentName: zod.string().min(1).max(startCustomSessionBodyStudentNameMax),
+  subject: zod.string().min(1).max(startCustomSessionBodySubjectMax),
+  durationMinutes: zod
+    .number()
+    .min(startCustomSessionBodyDurationMinutesMin)
+    .max(startCustomSessionBodyDurationMinutesMax)
+    .optional(),
+  grade: zod.string().max(startCustomSessionBodyGradeMax).optional(),
+  platform: zod.enum(["zoom", "google_meet", "teams"]).optional(),
+});
+
+/**
  * @summary Get the current active monitoring session
  */
 export const GetActiveSessionResponse = zod.object({

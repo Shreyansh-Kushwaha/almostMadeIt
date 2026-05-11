@@ -221,6 +221,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Session"
 
+  /sessions/start-custom:
+    post:
+      operationId: startCustomSession
+      tags: [sessions]
+      summary: Create an ad-hoc class on the fly and start a monitoring session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartCustomSessionBody"
+      responses:
+        "201":
+          description: Custom session started — returns both the new session and the created class
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveSessionResponse"
+
   /sessions/active:
     get:
       operationId: getActiveSession
@@ -729,6 +748,29 @@ components:
         classId:
           type: integer
       required: [classId]
+
+    StartCustomSessionBody:
+      type: object
+      properties:
+        studentName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 120
+        durationMinutes:
+          type: integer
+          minimum: 5
+          maximum: 240
+        grade:
+          type: string
+          maxLength: 40
+        platform:
+          type: string
+          enum: [zoom, google_meet, teams]
+      required: [studentName, subject]
 
     Session:
       type: object

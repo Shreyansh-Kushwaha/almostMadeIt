@@ -92,6 +92,36 @@ export interface StartSessionBody {
   classId: number;
 }
 
+export type StartCustomSessionBodyPlatform =
+  (typeof StartCustomSessionBodyPlatform)[keyof typeof StartCustomSessionBodyPlatform];
+
+export const StartCustomSessionBodyPlatform = {
+  zoom: "zoom",
+  google_meet: "google_meet",
+  teams: "teams",
+} as const;
+
+export interface StartCustomSessionBody {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  studentName: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  subject: string;
+  /**
+   * @minimum 5
+   * @maximum 240
+   */
+  durationMinutes?: number;
+  /** @maxLength 40 */
+  grade?: string;
+  platform?: StartCustomSessionBodyPlatform;
+}
+
 export type SessionStatus = (typeof SessionStatus)[keyof typeof SessionStatus];
 
 export const SessionStatus = {

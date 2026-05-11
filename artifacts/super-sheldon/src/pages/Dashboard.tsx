@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useGetDashboardStats, useListClasses } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import {
   Users,
@@ -11,8 +13,10 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Sparkles,
+  Plus,
 } from "lucide-react";
 import ChurnAlertsPanel from "@/components/ChurnAlertsPanel";
+import StartCustomClassModal from "@/components/StartCustomClassModal";
 import {
   AreaChart,
   Area,
@@ -43,6 +47,7 @@ interface StatCardDef {
 }
 
 export default function Dashboard() {
+  const [customOpen, setCustomOpen] = useState(false);
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: classes, isLoading: classesLoading } = useListClasses({ status: "upcoming", limit: 3 });
 
@@ -75,17 +80,26 @@ export default function Dashboard() {
       className="space-y-8"
     >
       {/* Page header */}
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <p className="eyebrow flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> ClassPulse Overview</p>
           <h1 className="text-3xl font-bold tracking-tight mt-1">Good to see you back</h1>
           <p className="text-sm text-muted-foreground mt-1">Here's how the last seven days played out.</p>
         </div>
-        <div className="hidden sm:block text-right">
-          <p className="text-[11px] text-muted-foreground">Live signal</p>
-          <p className="text-sm font-mono text-primary">{new Date().toLocaleDateString()}</p>
+        <div className="flex items-center gap-3">
+          <Button
+            size="lg"
+            onClick={() => setCustomOpen(true)}
+            data-testid="button-start-custom-class"
+            className="gap-2 shadow-[0_4px_18px_-6px_rgba(255,122,0,0.55)]"
+          >
+            <Plus className="w-4 h-4" />
+            Start Custom Class
+          </Button>
         </div>
       </div>
+
+      <StartCustomClassModal open={customOpen} onOpenChange={setCustomOpen} />
 
       <div className="divider-gradient" />
 
