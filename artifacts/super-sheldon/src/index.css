@@ -235,6 +235,25 @@
   50% { transform: scaleY(1); }
 }
 
+/* ───── Landing page utilities ───── */
+/* When the custom cursor is active, hide the native cursor on most surfaces */
+html.lp-cursor-active,
+html.lp-cursor-active * {
+  cursor: none !important;
+}
+@media (pointer: coarse), (hover: none) {
+  /* Touch devices keep their default cursor. */
+  html.lp-cursor-active,
+  html.lp-cursor-active * {
+    cursor: auto !important;
+  }
+}
+/* Marquee fade-out at the edges */
+.mask-fade-x {
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
 .glass-card {
   @apply bg-card/70 backdrop-blur-xl border border-white/5 dark:border-white/8 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4)] transition-all duration-200;
   /* subtle inner highlight on top edge */

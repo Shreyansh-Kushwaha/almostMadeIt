@@ -9,6 +9,7 @@ import NotFound from "@/pages/not-found";
 
 import Login from "./pages/Login";
 import LoadingSplash from "./pages/LoadingSplash";
+import Landing from "./pages/Landing";
 import BackendStatusToast from "./components/BackendStatusToast";
 import Dashboard from "./pages/Dashboard";
 import Classes from "./pages/Classes";
@@ -37,7 +38,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
   useEffect(() => {
     if (!token) {
-      setLocation("/login");
+      setLocation("/welcome");
     }
   }, [token, setLocation]);
 
@@ -54,7 +55,7 @@ function MainLayout() {
     if (isError) {
       localStorage.removeItem("sheldon_token");
       localStorage.removeItem("sheldon_demo_mode");
-      setLocation("/login");
+      setLocation("/welcome");
     }
   }, [isError, setLocation]);
 
@@ -120,6 +121,7 @@ function Router() {
 
   return (
     <Switch>
+      <Route path="/welcome" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/loading" component={LoadingSplash} />
       {/* Standalone monitor popup — no Shell, no auth redirect */}
