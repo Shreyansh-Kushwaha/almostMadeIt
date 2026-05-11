@@ -18,6 +18,8 @@ import type {
 
 import type {
   ActiveSessionResponse,
+  AdminLoginBody,
+  AdminLoginResponse,
   AppendTranscriptBody,
   ChurnAlert,
   ChurnPrediction,
@@ -40,6 +42,7 @@ import type {
   RecordQuizEventBody,
   Report,
   RetentionSnapshot,
+  SelectStudentBody,
   SelectTeacherBody,
   Session,
   StartCustomSessionBody,
@@ -47,6 +50,8 @@ import type {
   Student,
   StudentDetail,
   StudentKpi,
+  StudentLoginResponse,
+  StudentOption,
   Teacher,
   TeacherKpi,
   TeacherOption,
@@ -614,6 +619,253 @@ export const useSelectTeacher = <
   TContext
 > => {
   return useMutation(getSelectTeacherMutationOptions(options));
+};
+
+/**
+ * @summary Admin password login — returns an admin-role token
+ */
+export const getAdminLoginUrl = () => {
+  return `/api/auth/admin-login`;
+};
+
+export const adminLogin = async (
+  adminLoginBody: AdminLoginBody,
+  options?: RequestInit,
+): Promise<AdminLoginResponse> => {
+  return customFetch<AdminLoginResponse>(getAdminLoginUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminLoginBody),
+  });
+};
+
+export const getAdminLoginMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminLogin>>,
+    TError,
+    { data: BodyType<AdminLoginBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminLogin>>,
+  TError,
+  { data: BodyType<AdminLoginBody> },
+  TContext
+> => {
+  const mutationKey = ["adminLogin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminLogin>>,
+    { data: BodyType<AdminLoginBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminLogin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminLogin>>
+>;
+export type AdminLoginMutationBody = BodyType<AdminLoginBody>;
+export type AdminLoginMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin password login — returns an admin-role token
+ */
+export const useAdminLogin = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminLogin>>,
+    TError,
+    { data: BodyType<AdminLoginBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminLogin>>,
+  TError,
+  { data: BodyType<AdminLoginBody> },
+  TContext
+> => {
+  return useMutation(getAdminLoginMutationOptions(options));
+};
+
+/**
+ * @summary Public list of students for the picker screen
+ */
+export const getListStudentsForSelectUrl = () => {
+  return `/api/students/public-list`;
+};
+
+export const listStudentsForSelect = async (
+  options?: RequestInit,
+): Promise<StudentOption[]> => {
+  return customFetch<StudentOption[]>(getListStudentsForSelectUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListStudentsForSelectQueryKey = () => {
+  return [`/api/students/public-list`] as const;
+};
+
+export const getListStudentsForSelectQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStudentsForSelect>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listStudentsForSelect>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListStudentsForSelectQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStudentsForSelect>>
+  > = ({ signal }) => listStudentsForSelect({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStudentsForSelect>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStudentsForSelectQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStudentsForSelect>>
+>;
+export type ListStudentsForSelectQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public list of students for the picker screen
+ */
+
+export function useListStudentsForSelect<
+  TData = Awaited<ReturnType<typeof listStudentsForSelect>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listStudentsForSelect>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStudentsForSelectQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Issue a student-role token by student id (no password)
+ */
+export const getSelectStudentUrl = () => {
+  return `/api/auth/select-student`;
+};
+
+export const selectStudent = async (
+  selectStudentBody: SelectStudentBody,
+  options?: RequestInit,
+): Promise<StudentLoginResponse> => {
+  return customFetch<StudentLoginResponse>(getSelectStudentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(selectStudentBody),
+  });
+};
+
+export const getSelectStudentMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof selectStudent>>,
+    TError,
+    { data: BodyType<SelectStudentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof selectStudent>>,
+  TError,
+  { data: BodyType<SelectStudentBody> },
+  TContext
+> => {
+  const mutationKey = ["selectStudent"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof selectStudent>>,
+    { data: BodyType<SelectStudentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return selectStudent(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SelectStudentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof selectStudent>>
+>;
+export type SelectStudentMutationBody = BodyType<SelectStudentBody>;
+export type SelectStudentMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Issue a student-role token by student id (no password)
+ */
+export const useSelectStudent = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof selectStudent>>,
+    TError,
+    { data: BodyType<SelectStudentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof selectStudent>>,
+  TError,
+  { data: BodyType<SelectStudentBody> },
+  TContext
+> => {
+  return useMutation(getSelectStudentMutationOptions(options));
 };
 
 /**

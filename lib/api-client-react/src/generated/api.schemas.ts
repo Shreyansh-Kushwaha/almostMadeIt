@@ -22,23 +22,93 @@ export interface LoginBody {
   password: string;
 }
 
+export type LoginResponseRole =
+  (typeof LoginResponseRole)[keyof typeof LoginResponseRole];
+
+export const LoginResponseRole = {
+  teacher: "teacher",
+  admin: "admin",
+  student: "student",
+} as const;
+
+export type TeacherRole = (typeof TeacherRole)[keyof typeof TeacherRole];
+
+export const TeacherRole = {
+  teacher: "teacher",
+  admin: "admin",
+  student: "student",
+} as const;
+
 export interface Teacher {
-  id: number;
+  id: string;
   name: string;
   email: string;
   subject: string;
   avatarUrl?: string | null;
   totalClasses: number;
   avgScore: number;
+  role?: TeacherRole;
+  grade?: string | null;
+  primaryTeacherId?: number | null;
 }
 
 export interface LoginResponse {
   token: string;
+  role?: LoginResponseRole;
   teacher: Teacher;
 }
 
 export interface SelectTeacherBody {
-  teacherId: number;
+  teacherId: string;
+}
+
+export interface SelectStudentBody {
+  studentId: string;
+}
+
+export interface AdminLoginBody {
+  /** @minLength 1 */
+  password: string;
+}
+
+export type AdminLoginResponseRole =
+  (typeof AdminLoginResponseRole)[keyof typeof AdminLoginResponseRole];
+
+export const AdminLoginResponseRole = {
+  admin: "admin",
+} as const;
+
+export type AdminLoginResponseAdmin = {
+  name: string;
+  email: string;
+};
+
+export interface AdminLoginResponse {
+  token: string;
+  role: AdminLoginResponseRole;
+  admin: AdminLoginResponseAdmin;
+}
+
+export type StudentLoginResponseRole =
+  (typeof StudentLoginResponseRole)[keyof typeof StudentLoginResponseRole];
+
+export const StudentLoginResponseRole = {
+  student: "student",
+} as const;
+
+export interface StudentOption {
+  id: string;
+  name: string;
+  subject?: string | null;
+  grade?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface StudentLoginResponse {
+  token: string;
+  role: StudentLoginResponseRole;
+  student: StudentOption;
 }
 
 export interface UpdateMeBody {
@@ -56,11 +126,12 @@ export interface UpdateMeBody {
 }
 
 export interface TeacherOption {
-  id: number;
+  id: string;
   name: string;
   subject: string;
   avatarUrl?: string | null;
   totalClasses: number;
+  email?: string | null;
 }
 
 export type ClassPlatform = (typeof ClassPlatform)[keyof typeof ClassPlatform];

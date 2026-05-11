@@ -24,14 +24,18 @@ export const LoginBody = zod.object({
 
 export const LoginResponse = zod.object({
   token: zod.string(),
+  role: zod.enum(["teacher", "admin", "student"]).optional(),
   teacher: zod.object({
-    id: zod.number(),
+    id: zod.string(),
     name: zod.string(),
     email: zod.string(),
     subject: zod.string(),
     avatarUrl: zod.string().nullish(),
     totalClasses: zod.number(),
     avgScore: zod.number(),
+    role: zod.enum(["teacher", "admin", "student"]).optional(),
+    grade: zod.string().nullish(),
+    primaryTeacherId: zod.number().nullish(),
   }),
 });
 
@@ -39,13 +43,16 @@ export const LoginResponse = zod.object({
  * @summary Get current authenticated teacher
  */
 export const GetMeResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   email: zod.string(),
   subject: zod.string(),
   avatarUrl: zod.string().nullish(),
   totalClasses: zod.number(),
   avgScore: zod.number(),
+  role: zod.enum(["teacher", "admin", "student"]).optional(),
+  grade: zod.string().nullish(),
+  primaryTeacherId: zod.number().nullish(),
 });
 
 /**
@@ -62,13 +69,16 @@ export const UpdateMeBody = zod.object({
 });
 
 export const UpdateMeResponse = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   email: zod.string(),
   subject: zod.string(),
   avatarUrl: zod.string().nullish(),
   totalClasses: zod.number(),
   avgScore: zod.number(),
+  role: zod.enum(["teacher", "admin", "student"]).optional(),
+  grade: zod.string().nullish(),
+  primaryTeacherId: zod.number().nullish(),
 });
 
 /**
@@ -82,11 +92,12 @@ export const LogoutResponse = zod.object({
  * @summary Public list of teachers for the picker screen
  */
 export const ListTeachersForSelectResponseItem = zod.object({
-  id: zod.number(),
+  id: zod.string(),
   name: zod.string(),
   subject: zod.string(),
   avatarUrl: zod.string().nullish(),
   totalClasses: zod.number(),
+  email: zod.string().nullish(),
 });
 export const ListTeachersForSelectResponse = zod.array(
   ListTeachersForSelectResponseItem,
@@ -96,19 +107,75 @@ export const ListTeachersForSelectResponse = zod.array(
  * @summary Issue an auth token by teacher id (no password)
  */
 export const SelectTeacherBody = zod.object({
-  teacherId: zod.number(),
+  teacherId: zod.string(),
 });
 
 export const SelectTeacherResponse = zod.object({
   token: zod.string(),
+  role: zod.enum(["teacher", "admin", "student"]).optional(),
   teacher: zod.object({
-    id: zod.number(),
+    id: zod.string(),
     name: zod.string(),
     email: zod.string(),
     subject: zod.string(),
     avatarUrl: zod.string().nullish(),
     totalClasses: zod.number(),
     avgScore: zod.number(),
+    role: zod.enum(["teacher", "admin", "student"]).optional(),
+    grade: zod.string().nullish(),
+    primaryTeacherId: zod.number().nullish(),
+  }),
+});
+
+/**
+ * @summary Admin password login — returns an admin-role token
+ */
+
+export const AdminLoginBody = zod.object({
+  password: zod.string().min(1),
+});
+
+export const AdminLoginResponse = zod.object({
+  token: zod.string(),
+  role: zod.enum(["admin"]),
+  admin: zod.object({
+    name: zod.string(),
+    email: zod.string(),
+  }),
+});
+
+/**
+ * @summary Public list of students for the picker screen
+ */
+export const ListStudentsForSelectResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  subject: zod.string().nullish(),
+  grade: zod.string().nullish(),
+  email: zod.string().nullish(),
+  avatarUrl: zod.string().nullish(),
+});
+export const ListStudentsForSelectResponse = zod.array(
+  ListStudentsForSelectResponseItem,
+);
+
+/**
+ * @summary Issue a student-role token by student id (no password)
+ */
+export const SelectStudentBody = zod.object({
+  studentId: zod.string(),
+});
+
+export const SelectStudentResponse = zod.object({
+  token: zod.string(),
+  role: zod.enum(["student"]),
+  student: zod.object({
+    id: zod.string(),
+    name: zod.string(),
+    subject: zod.string().nullish(),
+    grade: zod.string().nullish(),
+    email: zod.string().nullish(),
+    avatarUrl: zod.string().nullish(),
   }),
 });
 
@@ -777,13 +844,16 @@ export const CreateInterventionBody = zod.object({
  */
 export const AdminListTeachersResponseItem = zod.object({
   teacher: zod.object({
-    id: zod.number(),
+    id: zod.string(),
     name: zod.string(),
     email: zod.string(),
     subject: zod.string(),
     avatarUrl: zod.string().nullish(),
     totalClasses: zod.number(),
     avgScore: zod.number(),
+    role: zod.enum(["teacher", "admin", "student"]).optional(),
+    grade: zod.string().nullish(),
+    primaryTeacherId: zod.number().nullish(),
   }),
   avgEngagement: zod.number(),
   avgUnderstanding: zod.number(),

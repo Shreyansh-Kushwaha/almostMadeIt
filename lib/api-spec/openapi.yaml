@@ -161,6 +161,71 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/admin-login:
+    post:
+      operationId: adminLogin
+      tags: [auth]
+      summary: Admin password login — returns an admin-role token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginBody"
+      responses:
+        "200":
+          description: Admin login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          description: Invalid admin password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /students/public-list:
+    get:
+      operationId: listStudentsForSelect
+      tags: [auth]
+      summary: Public list of students for the picker screen
+      responses:
+        "200":
+          description: Student picker list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudentOption"
+
+  /auth/select-student:
+    post:
+      operationId: selectStudent
+      tags: [auth]
+      summary: Issue a student-role token by student id (no password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelectStudentBody"
+      responses:
+        "200":
+          description: Student login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentLoginResponse"
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /classes:
     get:
       operationId: listClasses
@@ -662,6 +727,9 @@ components:
       properties:
         token:
           type: string
+        role:
+          type: string
+          enum: [teacher, admin, student]
         teacher:
           $ref: "#/components/schemas/Teacher"
       required: [token, teacher]
@@ -670,8 +738,74 @@ components:
       type: object
       properties:
         teacherId:
-          type: integer
+          # Mongo Wise ID (string). Server still accepts legacy ints for back-compat.
+          type: string
       required: [teacherId]
+
+    SelectStudentBody:
+      type: object
+      properties:
+        studentId:
+          type: string
+      required: [studentId]
+
+    AdminLoginBody:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 1
+      required: [password]
+
+    AdminLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+          enum: [admin]
+        admin:
+          type: object
+          properties:
+            name: { type: string }
+            email: { type: string }
+          required: [name, email]
+      required: [token, role, admin]
+
+    StudentLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+          enum: [student]
+        student:
+          $ref: "#/components/schemas/StudentOption"
+      required: [token, role, student]
+
+    StudentOption:
+      type: object
+      properties:
+        id:
+          # Mongo Wise student ID (24-char hex string)
+          type: string
+        name:
+          type: string
+        subject:
+          type: string
+          nullable: true
+        grade:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+      required: [id, name]
 
     UpdateMeBody:
       type: object
@@ -692,7 +826,8 @@ components:
       type: object
       properties:
         id:
-          type: integer
+          # Mongo Wise teacher ID (24-char hex string)
+          type: string
         name:
           type: string
         subject:
@@ -702,13 +837,18 @@ components:
           nullable: true
         totalClasses:
           type: integer
+        email:
+          type: string
+          nullable: true
       required: [id, name, subject, totalClasses]
 
     Teacher:
       type: object
       properties:
         id:
-          type: integer
+          # Mongo Wise teacher ID (string) for Wise-sourced teachers;
+          # numeric id (still serialized as string) for legacy Supabase rows.
+          type: string
         name:
           type: string
         email:
@@ -722,6 +862,15 @@ components:
           type: integer
         avgScore:
           type: number
+        role:
+          type: string
+          enum: [teacher, admin, student]
+        grade:
+          type: string
+          nullable: true
+        primaryTeacherId:
+          type: integer
+          nullable: true
       required: [id, name, email, subject, totalClasses, avgScore]
 
     Class:
