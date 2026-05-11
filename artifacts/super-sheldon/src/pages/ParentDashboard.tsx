@@ -27,17 +27,19 @@ function ScoreRing({ value, label, color }: { value: number; label: string; colo
 
 export default function ParentDashboard() {
   const params = useParams<{ studentId: string }>();
-  const studentId = parseInt(params.studentId ?? "", 10);
+  // Studio IDs are either Mongo Wise hex strings (24 chars) or Supabase int IDs.
+  // Pass through as a string so the backend can detect both shapes.
+  const studentId = params.studentId ?? "";
 
   const studentQ = useQuery({
     queryKey: ["student", studentId],
     queryFn: () => ClassPulse.getStudent(studentId),
-    enabled: Number.isFinite(studentId),
+    enabled: Boolean(studentId),
   });
   const reportQ = useQuery({
     queryKey: ["parent-report", studentId],
     queryFn: () => ClassPulse.getParentReport(studentId),
-    enabled: Number.isFinite(studentId),
+    enabled: Boolean(studentId),
   });
 
   if (studentQ.isLoading || reportQ.isLoading) {

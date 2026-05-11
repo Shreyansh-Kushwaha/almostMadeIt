@@ -1,11 +1,13 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ClassPulse } from "@/lib/classpulse";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import ChurnAlertsPanel from "@/components/ChurnAlertsPanel";
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { Building2, Users, ShieldAlert, Percent, TrendingDown } from "lucide-react";
+import { Building2, Users, ShieldAlert, Percent, TrendingDown, Search } from "lucide-react";
 
 // All bars use the brand orange; intensity steps up with risk so Critical
 // reads as "darker / hotter" while staying within the orange family.
@@ -20,6 +22,9 @@ function bucketColor(label: string) {
 }
 
 export default function AdminDashboard() {
+  const [teacherSearch, setTeacherSearch] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+
   const teachersQ = useQuery({ queryKey: ["admin-teachers"], queryFn: () => ClassPulse.adminTeachers() });
   const studentsQ = useQuery({ queryKey: ["admin-students"], queryFn: () => ClassPulse.adminStudents() });
   const retentionQ = useQuery({ queryKey: ["admin-retention"], queryFn: () => ClassPulse.adminRetention() });
@@ -27,6 +32,28 @@ export default function AdminDashboard() {
   const retention = retentionQ.data;
   const teachers = teachersQ.data ?? [];
   const students = studentsQ.data ?? [];
+
+  const filteredTeachers = useMemo(() => {
+    const q = teacherSearch.trim().toLowerCase();
+    if (!q) return teachers;
+    return teachers.filter(
+      (t) =>
+        t.teacher.name.toLowerCase().includes(q) ||
+        t.teacher.subject.toLowerCase().includes(q) ||
+        (t.teacher.email ?? "").toLowerCase().includes(q),
+    );
+  }, [teachers, teacherSearch]);
+
+  const filteredStudents = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter(
+      (s) =>
+        s.student.name.toLowerCase().includes(q) ||
+        (s.student.subject ?? "").toLowerCase().includes(q) ||
+        (s.student.grade ?? "").toLowerCase().includes(q),
+    );
+  }, [students, studentSearch]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
@@ -88,27 +115,40 @@ export default function AdminDashboard() {
 
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Teacher Performance</span>
+          <CardTitle className="flex items-center justify-between flex-wrap gap-3">
+            <span>Teacher Performance · {teachers.length} total</span>
             {teachersQ.isFetching && !teachersQ.isLoading && (
               <span className="text-xs text-primary/80 animate-pulse font-normal">Refreshing…</span>
             )}
           </CardTitle>
+          <div className="relative mt-2 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search teacher by name, subject or email…"
+              value={teacherSearch}
+              onChange={(e) => setTeacherSearch(e.target.value)}
+              className="pl-9 bg-card/60 border-white/10 h-8 text-sm"
+              data-testid="input-admin-teacher-search"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {teachersQ.isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
             </div>
-          ) : teachers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No teacher data available.</p>
+          ) : filteredTeachers.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">
+              {teacherSearch ? `No teachers match "${teacherSearch}"` : "No teacher data available."}
+            </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 bg-card/95 backdrop-blur-sm">
                   <tr className="text-muted-foreground border-b border-border/50">
                     <th className="text-left py-2 font-medium">Teacher</th>
                     <th className="text-left font-medium">Subject</th>
+                    <th className="text-right font-medium">Classes</th>
                     <th className="text-right font-medium">Avg Engagement</th>
                     <th className="text-right font-medium">Avg Understanding</th>
                     <th className="text-right font-medium">Churn Risk Avg</th>
@@ -116,10 +156,11 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {teachers.map((t) => (
+                  {filteredTeachers.map((t) => (
                     <tr key={t.teacher.id} className="border-b border-border/30 last:border-0">
                       <td className="py-2 font-medium">{t.teacher.name}</td>
                       <td className="text-muted-foreground">{t.teacher.subject}</td>
+                      <td className="text-right font-mono">{t.teacher.totalClasses}</td>
                       <td className="text-right font-mono">{t.avgEngagement}</td>
                       <td className="text-right font-mono">{t.avgUnderstanding}</td>
                       <td className="text-right font-mono text-orange-400">{t.churnRiskAvg}</td>
@@ -135,24 +176,36 @@ export default function AdminDashboard() {
 
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Student Roster</span>
+          <CardTitle className="flex items-center justify-between flex-wrap gap-3">
+            <span>Student Roster · {students.length} total</span>
             {studentsQ.isFetching && !studentsQ.isLoading && (
               <span className="text-xs text-primary/80 animate-pulse font-normal">Refreshing…</span>
             )}
           </CardTitle>
+          <div className="relative mt-2 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search student by name, subject or grade…"
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              className="pl-9 bg-card/60 border-white/10 h-8 text-sm"
+              data-testid="input-admin-student-search"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {studentsQ.isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
             </div>
-          ) : students.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No student data available.</p>
+          ) : filteredStudents.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">
+              {studentSearch ? `No students match "${studentSearch}"` : "No student data available."}
+            </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 bg-card/95 backdrop-blur-sm">
                   <tr className="text-muted-foreground border-b border-border/50">
                     <th className="text-left py-2 font-medium">Student</th>
                     <th className="text-left font-medium">Subject</th>
@@ -163,7 +216,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((s) => (
+                  {filteredStudents.map((s) => (
                     <tr key={s.student.id} className="border-b border-border/30 last:border-0">
                       <td className="py-2 font-medium">{s.student.name}</td>
                       <td className="text-muted-foreground">{s.student.subject ?? "—"}</td>

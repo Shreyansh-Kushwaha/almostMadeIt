@@ -40,13 +40,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // ─── types ────────────────────────────────────────────────────────────────
 
 export interface Student {
-  id: number;
+  id: number | string;
   name: string;
   email?: string | null;
   grade?: string | null;
   subject?: string | null;
   primaryTeacherId?: number | null;
   avatarUrl?: string | null;
+  classCount?: number;
 }
 
 export interface ChurnPrediction {
@@ -135,9 +136,10 @@ export interface StudentDetail extends Student {
 
 export const ClassPulse = {
   listStudents: () => request<Student[]>("/students"),
-  getStudent: (id: number) => request<StudentDetail>(`/students/${id}`),
-  getParentReport: (id: number) => request<ParentReport>(`/students/${id}/parent-report`),
-  getChurn: (id: number) => request<ChurnPrediction>(`/students/${id}/churn`),
+  // IDs may be Mongo Wise strings (24-char hex) or Supabase ints — pass through.
+  getStudent: (id: number | string) => request<StudentDetail>(`/students/${id}`),
+  getParentReport: (id: number | string) => request<ParentReport>(`/students/${id}/parent-report`),
+  getChurn: (id: number | string) => request<ChurnPrediction>(`/students/${id}/churn`),
   listChurnAlerts: () => request<ChurnAlert[]>("/churn/alerts"),
   detectConfusion: (transcript: string) =>
     request<ConfusionSignal>("/ai/confusion", {

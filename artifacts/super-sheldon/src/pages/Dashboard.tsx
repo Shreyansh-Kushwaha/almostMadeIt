@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { useGetDashboardStats, useListClasses } from "@workspace/api-client-react";
+import {
+  useGetDashboardStats,
+  useGetWeeklyPerformance,
+  useListClasses,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -27,16 +31,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const MOCK_CHART_DATA = [
-  { day: "Mon", score: 85 },
-  { day: "Tue", score: 88 },
-  { day: "Wed", score: 87 },
-  { day: "Thu", score: 92 },
-  { day: "Fri", score: 95 },
-  { day: "Sat", score: 91 },
-  { day: "Sun", score: 94 },
-];
-
 interface StatCardDef {
   title: string;
   value: string | number | undefined;
@@ -49,11 +43,12 @@ interface StatCardDef {
 export default function Dashboard() {
   const [customOpen, setCustomOpen] = useState(false);
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
+  const { data: weekly = [], isLoading: weeklyLoading } = useGetWeeklyPerformance();
   const { data: classes, isLoading: classesLoading } = useListClasses({ status: "upcoming", limit: 3 });
 
   const upcomingClasses = classes?.items.slice(0, 3) ?? [];
 
-  if (statsLoading || classesLoading) {
+  if (statsLoading || classesLoading || weeklyLoading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -164,15 +159,31 @@ export default function Dashboard() {
               <CardTitle className="mt-1">AI Performance Trend</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">Daily overall score, last 7 days</p>
             </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[10px] uppercase tracking-wider text-emerald-300 font-semibold">Trending up</span>
-            </div>
+            {(() => {
+              const delta = Number(stats?.avgAiScoreChange ?? 0);
+              const trending = delta > 0 ? "up" : delta < 0 ? "down" : "steady";
+              const cls =
+                trending === "up"
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+                  : trending === "down"
+                    ? "bg-rose-500/10 border-rose-500/20 text-rose-300"
+                    : "bg-muted/40 border-white/10 text-muted-foreground";
+              const dot =
+                trending === "up" ? "bg-emerald-400" : trending === "down" ? "bg-rose-400" : "bg-muted-foreground";
+              const label =
+                trending === "up" ? "Trending up" : trending === "down" ? "Trending down" : "Steady";
+              return (
+                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${cls}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${dot}`} />
+                  <span className="text-[10px] uppercase tracking-wider font-semibold">{label}</span>
+                </div>
+              );
+            })()}
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={MOCK_CHART_DATA}>
+                <AreaChart data={weekly}>
                   <defs>
                     <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
